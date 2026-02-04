@@ -284,3 +284,52 @@ class ComparisonResponse(BaseModel):
     citations: List[ComparisonCitation]
     session_id: str
     status: str
+
+
+# Confidence and enhanced citation schemas (Phase 5)
+
+
+class ConfidenceScore(BaseModel):
+    """Schema for confidence score with interpretation.
+
+    Provides confidence metrics from OpenAI logprobs analysis.
+    Phase 5 - Success Criteria #6.
+    """
+
+    score: float  # 0.0 to 1.0
+    level: str  # "high", "medium", "low", "unknown"
+    interpretation: str
+
+
+class HighlightedCitation(BaseModel):
+    """Schema for citation with exact text passage highlighting.
+
+    Phase 5 - Success Criteria #4: Responses include highlighted citations
+    showing exact text passages from source documents.
+
+    Character offsets enable UI highlighting of the exact passage
+    that supports the answer.
+    """
+
+    document_id: str
+    filename: str
+    page_number: Optional[int] = None
+    chunk_text: str  # Full chunk for context
+    highlighted_passage: str  # Exact text supporting answer (verbatim)
+    highlight_start: int  # Character offset in chunk_text
+    highlight_end: int  # Character offset in chunk_text
+    relevance_score: float
+    chunk_position: int
+
+
+class QueryResponseWithCitations(BaseModel):
+    """Schema for enhanced query response with confidence and highlighted citations.
+
+    Phase 5 enhanced query response providing:
+    - Confidence score indicating model certainty
+    - Highlighted citations with exact text passages
+    """
+
+    answer: str
+    confidence: ConfidenceScore
+    citations: List[HighlightedCitation]
