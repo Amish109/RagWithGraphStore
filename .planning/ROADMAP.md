@@ -13,7 +13,7 @@ This roadmap delivers a production-ready FastAPI backend for intelligent documen
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
-- [ ] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
+- [x] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
 - [ ] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [ ] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
 - [ ] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
@@ -55,13 +55,13 @@ Plans:
 **Plans**: 7 plans in 4 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Redis + refresh token rotation with single-use enforcement (Wave 1)
-- [ ] 02-02-PLAN.md — Anonymous session management with HTTP-only cookies (Wave 1)
-- [ ] 02-03-PLAN.md — RBAC with user/admin roles (Wave 2)
-- [ ] 02-04-PLAN.md — Memory service and API endpoints (Wave 2)
-- [ ] 02-05-PLAN.md — Anonymous-to-authenticated data migration (Wave 3)
-- [ ] 02-06-PLAN.md — TTL cleanup scheduler + shared memory management (Wave 3)
-- [ ] 02-07-PLAN.md — Multi-tenant isolation security tests (Wave 4)
+- [x] 02-01-PLAN.md — Redis + refresh token rotation with single-use enforcement (Wave 1)
+- [x] 02-02-PLAN.md — Anonymous session management with HTTP-only cookies (Wave 1)
+- [x] 02-03-PLAN.md — RBAC with user/admin roles (Wave 2)
+- [x] 02-04-PLAN.md — Memory service and API endpoints (Wave 2)
+- [x] 02-05-PLAN.md — Anonymous-to-authenticated data migration (Wave 3)
+- [x] 02-06-PLAN.md — TTL cleanup scheduler + shared memory management (Wave 3)
+- [x] 02-07-PLAN.md — Multi-tenant isolation security tests (Wave 4)
 
 ### Phase 3: UX & Streaming
 **Goal**: Polish user experience with streaming responses, document management UI, and robust error handling
@@ -145,7 +145,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Core RAG | 5/5 | Complete | 2026-02-04 |
-| 2. Multi-User Core & Memory Integration | 0/7 | Planned | - |
+| 2. Multi-User Core & Memory Integration | 7/7 | Complete | 2026-02-04 |
 | 3. UX & Streaming | 0/4 | Planned | - |
 | 4. LangGraph & Advanced Workflows | 0/5 | Planned | - |
 | 5. Differentiation Features | 0/4 | Planned | - |
