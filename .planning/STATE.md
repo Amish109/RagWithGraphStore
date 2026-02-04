@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 5: Differentiation Features - Wave 2 Complete
+**Current focus:** Phase 5: Differentiation Features - COMPLETE
 
 ## Current Position
 
-Phase: 5 of 6 (Differentiation Features) - In Progress
-Plan: 3 of 4 complete
-Status: In progress
-Last activity: 2026-02-04 - Completed 05-03-PLAN.md (Wave 2)
+Phase: 5 of 6 (Differentiation Features) - Complete
+Plan: 4 of 4 complete
+Status: Complete
+Last activity: 2026-02-04 - Completed 05-04-PLAN.md (Wave 3)
 
-Progress: [███████░░░] 75% (Phase 5)
-Overall: [████████░░] 80% (24/30 plans across all phases)
+Progress: [██████████] 100% (Phase 5)
+Overall: [████████░░] 83% (25/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
-- Average duration: 4.4 min
+- Total plans completed: 25
+- Average duration: 4.3 min
 - Total execution time: 1.8 hours
 
 **By Phase:**
@@ -32,11 +32,11 @@ Overall: [████████░░] 80% (24/30 plans across all phases)
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
 | 03-ux-streaming | 4 | 20 min | 5.0 min |
 | 04-langgraph-workflows | 5 | 19 min | 3.8 min |
-| 05-differentiation | 3 | 12 min | 4.0 min |
+| 05-differentiation | 4 | 15 min | 3.8 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-04 (3 min), 04-05 (2 min), 05-01 (4 min), 05-02 (4 min), 05-03 (4 min)
-- Trend: Phase 5 Wave 2 completed efficiently - confidence and citations added in single plan
+- Last 5 plans: 04-05 (2 min), 05-01 (4 min), 05-02 (4 min), 05-03 (4 min), 05-04 (3 min)
+- Trend: Phase 5 completed efficiently - memory integration leveraged existing Phase 2 infrastructure
 
 *Updated after each plan completion*
 
@@ -136,6 +136,10 @@ Recent decisions affecting current work:
 - **05-03:** Verbatim verification prevents citation hallucination
 - **05-03:** Fallback to 200-char truncation if exact match fails
 - **05-03:** /enhanced endpoint for Phase 5 features, /query unchanged
+- **05-04:** Use search_with_shared for memory retrieval (includes shared company knowledge)
+- **05-04:** Limit memory context to 3 results to avoid context bloat
+- **05-04:** Only extract citations from document chunks (not memory context)
+- **05-04:** Memory context labeled as 'User Memory' or 'Shared Memory' for transparency
 
 ### Pending Todos
 
@@ -149,10 +153,14 @@ None yet.
 
 **Phase 4 (LangGraph Integration):** COMPLETE. All 5 plans executed successfully. Document comparison via LangGraph workflow with GraphRAG multi-hop reasoning, memory summarization, and API endpoint.
 
-**Phase 5 (Differentiation Features):** In progress. Waves 1-2 complete (05-01, 05-02, 05-03). On-demand summarization, text simplification, confidence scores, and highlighted citations ready. Wave 3 (memory API) next.
+**Phase 5 (Differentiation Features):** COMPLETE. All 4 plans executed successfully:
+- 05-01: On-demand document summarization with caching
+- 05-02: Text simplification with reading level control
+- 05-03: Confidence scores and highlighted citations
+- 05-04: Memory API and shared knowledge integration
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 5 Wave 2 execution (05-03)
-Stopped at: Completed 05-03-PLAN.md, ready for Wave 3 (05-04)
+Last session: 2026-02-04 - Phase 5 Wave 3 execution (05-04)
+Stopped at: Completed 05-04-PLAN.md, Phase 5 complete
 Resume file: None

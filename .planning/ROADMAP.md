@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
 - [x] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [ ] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
-- [ ] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
+- [x] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
 - [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing
 
 ## Phase Details
@@ -115,10 +115,10 @@ Plans:
 **Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 05-01-PLAN.md — On-demand document summarization service (Wave 1)
-- [ ] 05-02-PLAN.md — Text simplification service with reading level control (Wave 1)
-- [ ] 05-03-PLAN.md — Confidence scores and highlighted citations (Wave 2)
-- [ ] 05-04-PLAN.md — Memory API and shared knowledge integration (Wave 3)
+- [x] 05-01-PLAN.md — On-demand document summarization service (Wave 1)
+- [x] 05-02-PLAN.md — Text simplification service with reading level control (Wave 1)
+- [x] 05-03-PLAN.md — Confidence scores and highlighted citations (Wave 2)
+- [x] 05-04-PLAN.md — Memory API and shared knowledge integration (Wave 3)
 
 ### Phase 6: Production Hardening
 **Goal**: Production-ready system with observability, performance optimization, and operational excellence
@@ -148,5 +148,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Multi-User Core & Memory Integration | 7/7 | Complete | 2026-02-04 |
 | 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
 | 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
-| 5. Differentiation Features | 0/4 | Planned | - |
+| 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
 | 6. Production Hardening | 0/0 | Not started | - |
