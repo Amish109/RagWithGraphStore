@@ -21,10 +21,24 @@ class UserRegister(BaseModel):
 
 
 class Token(BaseModel):
-    """Schema for JWT token response."""
+    """Schema for JWT token response (legacy, single token)."""
 
     access_token: str
     token_type: str = "bearer"
+
+
+class TokenPair(BaseModel):
+    """Schema for JWT token pair response (access + refresh)."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    """Schema for refresh token request."""
+
+    refresh_token: str
 
 
 class UserResponse(BaseModel):

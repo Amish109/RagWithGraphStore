@@ -22,7 +22,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         token: JWT token extracted from Authorization header
 
     Returns:
-        User dict from database
+        User dict from database with additional token info (jti)
 
     Raises:
         CredentialsException: If token is invalid or user not found
@@ -41,5 +41,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     user = get_user_by_email(email)
     if user is None:
         raise CredentialsException()
+
+    # Include JTI from token for logout/blocklist operations
+    jti = payload.get("jti")
+    if jti:
+        user["jti"] = jti
 
     return user
