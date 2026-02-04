@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     from app.db.neo4j_client import neo4j_driver, close_neo4j, init_neo4j_schema
     from app.db.qdrant_client import qdrant_client, close_qdrant, init_qdrant_collection
     from app.db.redis_client import close_redis
+    from app.jobs.cleanup import setup_cleanup_scheduler, shutdown_cleanup_scheduler
 
     # Verify Neo4j connection
     neo4j_driver.verify_connectivity()
@@ -41,12 +42,17 @@ async def lifespan(app: FastAPI):
     validate_embedding_dimensions()
     print("Embedding dimensions validated")
 
+    # Start cleanup scheduler for anonymous data TTL
+    setup_cleanup_scheduler()
+    print("Cleanup scheduler started")
+
     print("Startup complete")
 
     yield  # Application runs
 
-    # Shutdown: Close connections
+    # Shutdown: Close connections and stop scheduler
     print("Shutting down - closing database connections...")
+    shutdown_cleanup_scheduler()
     close_neo4j()
     close_qdrant()
     await close_redis()

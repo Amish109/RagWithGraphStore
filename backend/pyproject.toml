@@ -26,6 +26,7 @@ dependencies = [
     "python-dotenv",
     "openai",
     "redis>=5.0.0",
+    "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]

@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # Memory Configuration
     SHARED_MEMORY_USER_ID: str = "__shared__"  # Sentinel for company-wide memory
 
+    # TTL Cleanup Configuration
+    ANONYMOUS_DATA_TTL_DAYS: int = 7  # How long to keep anonymous data
+    CLEANUP_SCHEDULE_HOUR: int = 3  # Run cleanup at 3 AM
+
 
 # Global settings instance
 settings = Settings()
