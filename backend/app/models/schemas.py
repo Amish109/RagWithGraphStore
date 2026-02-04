@@ -5,9 +5,10 @@ Defines data models for API endpoints including:
 - Token responses
 - Standard message responses
 - Document upload and info
+- Query request/response with citations
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
 
@@ -58,3 +59,29 @@ class DocumentInfo(BaseModel):
     filename: str
     upload_date: Optional[str] = None
     chunk_count: Optional[int] = None
+
+
+# Query schemas
+
+
+class QueryRequest(BaseModel):
+    """Schema for document query request."""
+
+    query: str
+    max_results: int = 3
+
+
+class Citation(BaseModel):
+    """Schema for a source citation in query response."""
+
+    document_id: str
+    filename: str
+    chunk_text: str
+    relevance_score: float
+
+
+class QueryResponse(BaseModel):
+    """Schema for query response with answer and citations."""
+
+    answer: str
+    citations: List[Citation]

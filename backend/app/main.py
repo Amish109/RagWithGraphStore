@@ -76,10 +76,8 @@ async def health_check():
 # Router includes
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
+from app.api.queries import router as queries_router
 
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["auth"])
 app.include_router(documents_router, prefix=f"{settings.API_V1_PREFIX}/documents", tags=["documents"])
-
-# TODO: Add in subsequent plans
-# from app.api import queries
-# app.include_router(queries.router, prefix=f"{settings.API_V1_PREFIX}/query", tags=["queries"])
+app.include_router(queries_router, prefix=f"{settings.API_V1_PREFIX}/query", tags=["queries"])
