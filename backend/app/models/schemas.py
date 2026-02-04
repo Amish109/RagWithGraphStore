@@ -121,6 +121,48 @@ class QueryResponse(BaseModel):
     citations: List[Citation]
 
 
+# Summary schemas
+
+
+class SummaryResponse(BaseModel):
+    """Schema for document summary response (QRY-06).
+
+    Returned by GET /documents/{document_id}/summary endpoint.
+    """
+
+    document_id: str
+    summary_type: str  # "brief", "detailed", "executive", "bullet"
+    summary: str
+    method: str  # "stuff" or "map_reduce"
+    chunks_processed: Optional[int] = None  # Only for map_reduce
+
+
+# Simplification schemas
+
+
+class SimplifyRequest(BaseModel):
+    """Schema for text simplification request (QRY-07).
+
+    Used by POST /simplify endpoint.
+    """
+
+    text: str
+    document_id: Optional[str] = None  # For context retrieval
+    level: str = "general"  # eli5, general, professional
+
+
+class SimplifyResponse(BaseModel):
+    """Schema for text simplification response (QRY-07).
+
+    Returned by POST /simplify endpoint.
+    """
+
+    original_text: str  # Truncated to 500 chars if longer
+    simplified_text: str
+    level: str
+    level_description: str
+
+
 # Memory schemas
 
 

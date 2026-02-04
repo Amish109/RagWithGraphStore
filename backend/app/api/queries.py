@@ -3,27 +3,47 @@
 Provides the /query endpoint for asking questions about uploaded documents.
 Implements QRY-01 (query), QRY-03 (citations), QRY-04 ("I don't know" fallback).
 Implements QRY-02 (streaming) via SSE at POST /stream.
+Implements QRY-06 (document summaries) via GET /documents/{document_id}/summary.
+Implements QRY-07 (text simplification) via POST /simplify.
 Supports both authenticated and anonymous users via get_current_user_optional.
 """
 
 import json
 import logging
+from typing import Dict
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.security import get_current_user_optional
-from app.models.schemas import Citation, QueryRequest, QueryResponse, UserContext
+from app.models.schemas import (
+    Citation,
+    QueryRequest,
+    QueryResponse,
+    SimplifyRequest,
+    SimplifyResponse,
+    SummaryResponse,
+    UserContext,
+)
 from app.services.generation_service import (
     generate_answer,
     generate_answer_no_context,
     stream_answer,
 )
 from app.services.retrieval_service import retrieve_relevant_context
+from app.services.simplification_service import (
+    SIMPLIFICATION_LEVELS,
+    simplify_document_section,
+    simplify_text,
+)
+from app.services.summarization_service import SUMMARY_PROMPTS, summarize_document
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Module-level cache for summaries (simple in-memory cache)
+_summary_cache: Dict[str, dict] = {}
 
 
 @router.post("/", response_model=QueryResponse)
@@ -180,3 +200,105 @@ async def query_stream(
             "Cache-Control": "no-cache",
         }
     )
+
+
+@router.get("/documents/{document_id}/summary", response_model=SummaryResponse)
+async def get_document_summary(
+    document_id: str,
+    summary_type: str = Query(
+        default="brief",
+        enum=["brief", "detailed", "executive", "bullet"],
+        description="Type of summary to generate"
+    ),
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Get summary of a document (QRY-06).
+
+    Summary types:
+    - brief: 2-3 sentence overview
+    - detailed: Comprehensive coverage of all key points
+    - executive: Business-focused with recommendations
+    - bullet: Key points as bulleted list
+
+    Summaries are cached for performance.
+    Supports both authenticated and anonymous users.
+
+    Args:
+        document_id: ID of the document to summarize.
+        summary_type: Type of summary to generate.
+        current_user: UserContext (authenticated or anonymous).
+
+    Returns:
+        SummaryResponse with document_id, summary_type, summary, method.
+
+    Raises:
+        HTTPException 404: Document not found or user doesn't have access.
+    """
+    user_id = current_user.id
+
+    result = await summarize_document(
+        document_id=document_id,
+        user_id=user_id,
+        summary_type=summary_type,
+        cache_dict=_summary_cache,
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found or you don't have access"
+        )
+
+    return SummaryResponse(**result)
+
+
+@router.post("/simplify", response_model=SimplifyResponse)
+async def simplify_content(
+    request: SimplifyRequest,
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Simplify complex text to specified reading level (QRY-07).
+
+    Levels:
+    - eli5: Child-friendly explanation (elementary reading level)
+    - general: General audience (8th grade reading level, default)
+    - professional: Professionals from other fields (college reading level)
+
+    Uses two-stage prompting: simplify then verify reading level.
+    Supports both authenticated and anonymous users.
+
+    Args:
+        request: SimplifyRequest with text, optional document_id, and level.
+        current_user: UserContext (authenticated or anonymous).
+
+    Returns:
+        SimplifyResponse with original_text, simplified_text, level, level_description.
+
+    Raises:
+        HTTPException 400: Invalid simplification level.
+    """
+    # Validate level
+    if request.level not in SIMPLIFICATION_LEVELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid level '{request.level}'. Must be one of: {list(SIMPLIFICATION_LEVELS.keys())}"
+        )
+
+    user_id = current_user.id
+
+    # If document_id provided, use context-aware simplification
+    if request.document_id:
+        result = await simplify_document_section(
+            document_id=request.document_id,
+            user_id=user_id,
+            section_text=request.text,
+            level=request.level,
+        )
+    else:
+        # Direct simplification without document context
+        result = await simplify_text(
+            text=request.text,
+            level=request.level,
+        )
+
+    return SimplifyResponse(**result)
