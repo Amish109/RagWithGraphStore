@@ -6,11 +6,12 @@ Defines data models for API endpoints including:
 - Standard message responses
 - Document upload and info
 - Query request/response with citations
+- Document comparison request/response
 """
 
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegister(BaseModel):
@@ -185,3 +186,59 @@ class TaskStatusResponse(BaseModel):
     progress: int  # 0-100 percentage
     message: str  # Human-readable status message
     error: Optional[str] = None  # Error details if status is "failed"
+
+
+# Comparison schemas
+
+
+class ComparisonRequest(BaseModel):
+    """Request schema for document comparison.
+
+    Used by POST /api/v1/compare to initiate document comparison workflow.
+    Requires 2-5 document IDs and a comparison query.
+    """
+
+    document_ids: List[str] = Field(
+        ...,
+        min_length=2,
+        max_length=5,
+        description="IDs of documents to compare (2-5 documents)",
+    )
+    query: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="Comparison query or focus area",
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Session ID for multi-turn conversations",
+    )
+
+
+class ComparisonCitation(BaseModel):
+    """Citation from a source document in comparison response.
+
+    Provides attribution to specific document sections used in analysis.
+    """
+
+    document_id: str
+    chunk_id: str
+    filename: str
+    text: str = Field(..., max_length=500, description="Cited text excerpt")
+
+
+class ComparisonResponse(BaseModel):
+    """Response schema for document comparison.
+
+    Contains detailed analysis including similarities, differences,
+    cross-document insights, and citations for attribution.
+    """
+
+    similarities: List[str]
+    differences: List[str]
+    cross_document_insights: List[str]
+    response: str
+    citations: List[ComparisonCitation]
+    session_id: str
+    status: str
