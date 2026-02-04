@@ -1,0 +1,31 @@
+# Core framework
+fastapi>=0.126.0
+pydantic>=2.7.0
+pydantic-settings>=2.0.0
+uvicorn[standard]
+
+# Memory & databases
+mem0ai
+neo4j>=6.1.0
+qdrant-client>=1.16.2
+
+# LLM orchestration
+langchain>=1.0
+langchain-openai>=1.1.7
+openai
+
+# Document processing
+pymupdf4llm
+python-docx
+
+# Authentication
+pyjwt
+pwdlib[argon2]
+
+# Utilities
+python-dotenv
+
+# Development dependencies
+pytest
+pytest-asyncio
+httpx
