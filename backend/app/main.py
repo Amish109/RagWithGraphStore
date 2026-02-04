@@ -99,12 +99,14 @@ async def health_check():
 # Router includes
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
+from app.api.comparisons import router as comparisons_router
 from app.api.documents import router as documents_router
 from app.api.memory import router as memory_router
 from app.api.queries import router as queries_router
 
 app.include_router(admin_router, prefix=settings.API_V1_PREFIX, tags=["admin"])
 app.include_router(auth_router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["auth"])
+app.include_router(comparisons_router, prefix=f"{settings.API_V1_PREFIX}/compare", tags=["comparison"])
 app.include_router(documents_router, prefix=f"{settings.API_V1_PREFIX}/documents", tags=["documents"])
 app.include_router(memory_router, prefix=settings.API_V1_PREFIX, tags=["memory"])
 app.include_router(queries_router, prefix=f"{settings.API_V1_PREFIX}/query", tags=["queries"])
