@@ -3,6 +3,7 @@
 Provides:
 - POST /upload: Upload PDF or DOCX documents for processing
 - GET /: List user's documents
+- GET /{document_id}/status: Get document processing status
 
 Following research Pattern 6: Document Upload with Async Processing.
 Supports both authenticated and anonymous users via get_current_user_optional.
@@ -25,9 +26,15 @@ from fastapi import (
 
 from app.config import settings
 from app.core.security import get_current_user_optional
-from app.models.document import get_user_documents
-from app.models.schemas import DocumentInfo, DocumentUploadResponse, UserContext
+from app.models.document import get_document_by_id, get_user_documents
+from app.models.schemas import (
+    DocumentInfo,
+    DocumentUploadResponse,
+    TaskStatusResponse,
+    UserContext,
+)
 from app.services.document_processor import process_document_pipeline
+from app.utils.task_tracker import task_tracker
 
 router = APIRouter()
 
@@ -86,6 +93,9 @@ async def upload_document(
     document_id = str(uuid.uuid4())
     user_id = current_user.id  # Works for both authenticated and anonymous
 
+    # Create task for status tracking
+    task_tracker.create(document_id, user_id, file.filename)
+
     # Save file to temp location for background processing
     # Use appropriate extension based on content type
     ext = ".pdf" if file.content_type == "application/pdf" else ".docx"
@@ -128,3 +138,57 @@ async def list_documents(
     user_id = current_user.id  # Works for both authenticated and anonymous
     documents = get_user_documents(user_id)
     return [DocumentInfo(**doc) for doc in documents]
+
+
+@router.get("/{document_id}/status", response_model=TaskStatusResponse)
+async def get_document_status(
+    document_id: str,
+    current_user: UserContext = Depends(get_current_user_optional),
+) -> TaskStatusResponse:
+    """Get document processing status.
+
+    Returns current processing stage and progress percentage.
+    If document is fully processed and not in task tracker,
+    returns completed status.
+
+    Args:
+        document_id: UUID of the document.
+        current_user: UserContext (authenticated or anonymous).
+
+    Returns:
+        TaskStatusResponse with status, progress, and message.
+
+    Raises:
+        HTTPException 404: If document not found.
+    """
+    user_id = current_user.id
+
+    # Check task tracker first (for in-progress documents)
+    task = task_tracker.get(document_id)
+    if task:
+        # Verify ownership
+        if task.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+            )
+        return TaskStatusResponse(
+            document_id=document_id,
+            status=task.status.value,
+            progress=task.progress,
+            message=task.message,
+            error=task.error,
+        )
+
+    # Check if document exists in Neo4j (already processed)
+    doc = get_document_by_id(document_id, user_id)
+    if doc:
+        return TaskStatusResponse(
+            document_id=document_id,
+            status="completed",
+            progress=100,
+            message="Document ready",
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+    )
