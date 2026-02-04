@@ -26,10 +26,12 @@ from fastapi import (
 
 from app.config import settings
 from app.core.security import get_current_user_optional
-from app.models.document import get_document_by_id, get_user_documents
+from app.db.qdrant_client import delete_by_document_id
+from app.models.document import delete_document, get_document_by_id, get_user_documents
 from app.models.schemas import (
     DocumentInfo,
     DocumentUploadResponse,
+    MessageResponse,
     TaskStatusResponse,
     UserContext,
 )
@@ -192,3 +194,60 @@ async def get_document_status(
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
     )
+
+
+@router.delete("/{document_id}", response_model=MessageResponse)
+async def delete_document_endpoint(
+    document_id: str,
+    current_user: UserContext = Depends(get_current_user_optional),
+) -> MessageResponse:
+    """Delete a document and all associated data.
+
+    Implements MGMT-02: Document deletion with cascade.
+
+    CRITICAL: Order matters for consistency (Pitfall #2):
+    1. Verify ownership in Neo4j
+    2. Delete from Qdrant first (no rollback available)
+    3. Delete from Neo4j (transactional)
+
+    If Neo4j deletion fails after Qdrant, vectors are orphaned
+    but that's safer than orphaned Neo4j data with missing vectors.
+
+    Args:
+        document_id: UUID of the document to delete.
+        current_user: Authenticated or anonymous user from JWT/session.
+
+    Returns:
+        MessageResponse confirming deletion.
+
+    Raises:
+        HTTPException 404: If document not found or not owned by user.
+    """
+    user_id = current_user.id
+
+    # Step 1: Verify ownership
+    doc = get_document_by_id(document_id, user_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    # Step 2: Delete from Qdrant first
+    # (Qdrant has no transaction support, so do it first)
+    delete_by_document_id(document_id)
+
+    # Step 3: Delete from Neo4j
+    deleted = delete_document(document_id, user_id)
+    if not deleted:
+        # This shouldn't happen if ownership check passed,
+        # but handle gracefully
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document from database"
+        )
+
+    # Clean up task tracker if still present
+    task_tracker.remove(document_id)
+
+    return MessageResponse(message="Document deleted successfully")

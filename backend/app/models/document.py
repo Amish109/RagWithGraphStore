@@ -31,7 +31,8 @@ def get_document_by_id(document_id: str, user_id: str) -> Optional[Dict]:
                 .id,
                 .filename,
                 .upload_date,
-                .chunk_count
+                .chunk_count,
+                .summary
             } AS document
             """,
             document_id=document_id,
@@ -54,7 +55,7 @@ def get_user_documents(user_id: str) -> List[Dict]:
         user_id: ID of the user.
 
     Returns:
-        List of document dicts with id, filename, upload_date, chunk_count.
+        List of document dicts with id, filename, upload_date, chunk_count, summary.
     """
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
         result = session.run(
@@ -64,7 +65,8 @@ def get_user_documents(user_id: str) -> List[Dict]:
                 .id,
                 .filename,
                 .upload_date,
-                .chunk_count
+                .chunk_count,
+                .summary
             } AS document
             ORDER BY d.upload_date DESC
             """,
@@ -78,3 +80,33 @@ def get_user_documents(user_id: str) -> List[Dict]:
                 doc["upload_date"] = doc["upload_date"].isoformat()
             documents.append(doc)
         return documents
+
+
+def delete_document(document_id: str, user_id: str) -> bool:
+    """Delete a document and all its chunks from Neo4j.
+
+    Uses DETACH DELETE to cascade deletion to all chunks.
+    CRITICAL: Always filter by user_id for multi-tenant isolation.
+
+    Args:
+        document_id: UUID of the document.
+        user_id: ID of the requesting user (for ownership verification).
+
+    Returns:
+        True if document was deleted, False if not found/not owned.
+    """
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            """
+            MATCH (u:User {id: $user_id})-[:OWNS]->(d:Document {id: $document_id})
+            OPTIONAL MATCH (d)-[:CONTAINS]->(c:Chunk)
+            WITH d, collect(c) as chunks
+            DETACH DELETE d
+            FOREACH (chunk IN chunks | DELETE chunk)
+            RETURN count(d) as deleted
+            """,
+            document_id=document_id,
+            user_id=user_id,
+        )
+        record = result.single()
+        return record and record["deleted"] > 0

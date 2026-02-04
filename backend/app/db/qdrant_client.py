@@ -127,6 +127,28 @@ def upsert_chunks(chunks: List[Dict]) -> None:
     )
 
 
+def delete_by_document_id(document_id: str) -> None:
+    """Delete all vectors associated with a document.
+
+    CRITICAL: Called BEFORE Neo4j deletion for consistency.
+    Qdrant deletion by filter is atomic for matching points.
+
+    Args:
+        document_id: UUID of the document to delete vectors for.
+    """
+    from qdrant_client.models import FilterSelector
+
+    qdrant_client.delete(
+        collection_name=settings.QDRANT_COLLECTION,
+        points_selector=FilterSelector(
+            filter=Filter(
+                must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
+            )
+        ),
+        wait=True,  # Wait for deletion to complete
+    )
+
+
 def search_similar_chunks(
     query_vector: List[float], user_id: str, limit: int = 10
 ) -> List[Dict]:
