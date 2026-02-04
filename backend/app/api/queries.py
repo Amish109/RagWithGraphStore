@@ -2,12 +2,13 @@
 
 Provides the /query endpoint for asking questions about uploaded documents.
 Implements QRY-01 (query), QRY-03 (citations), QRY-04 ("I don't know" fallback).
+Supports both authenticated and anonymous users via get_current_user_optional.
 """
 
 from fastapi import APIRouter, Depends
 
-from app.core.security import get_current_user
-from app.models.schemas import Citation, QueryRequest, QueryResponse
+from app.core.security import get_current_user_optional
+from app.models.schemas import Citation, QueryRequest, QueryResponse, UserContext
 from app.services.generation_service import generate_answer, generate_answer_no_context
 from app.services.retrieval_service import retrieve_relevant_context
 
@@ -17,7 +18,7 @@ router = APIRouter()
 @router.post("/", response_model=QueryResponse)
 async def query_documents(
     request: QueryRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_optional),
 ):
     """Ask a question about uploaded documents.
 
@@ -26,14 +27,16 @@ async def query_documents(
     - QRY-03: Source citations with document references
     - QRY-04: "I don't know" fallback when context insufficient
 
+    Supports both authenticated and anonymous users.
+
     Args:
         request: QueryRequest with query string and max_results.
-        current_user: Authenticated user from JWT token.
+        current_user: UserContext (authenticated or anonymous).
 
     Returns:
         QueryResponse with answer and list of source citations.
     """
-    user_id = current_user["id"]
+    user_id = current_user.id  # Works for both authenticated and anonymous
 
     # Step 1: Retrieve relevant context (filtered by user_id)
     context = await retrieve_relevant_context(

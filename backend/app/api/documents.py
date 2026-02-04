@@ -5,6 +5,7 @@ Provides:
 - GET /: List user's documents
 
 Following research Pattern 6: Document Upload with Async Processing.
+Supports both authenticated and anonymous users via get_current_user_optional.
 """
 
 import os
@@ -23,9 +24,9 @@ from fastapi import (
 )
 
 from app.config import settings
-from app.core.security import get_current_user
+from app.core.security import get_current_user_optional
 from app.models.document import get_user_documents
-from app.models.schemas import DocumentInfo, DocumentUploadResponse
+from app.models.schemas import DocumentInfo, DocumentUploadResponse, UserContext
 from app.services.document_processor import process_document_pipeline
 
 router = APIRouter()
@@ -41,7 +42,7 @@ ALLOWED_CONTENT_TYPES = {
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_optional),
 ) -> DocumentUploadResponse:
     """Upload a PDF or DOCX document for processing.
 
@@ -52,18 +53,18 @@ async def upload_document(
     4. Storage in Neo4j (metadata) and Qdrant (vectors)
 
     Implements requirements API-01, DOC-01, DOC-02.
+    Supports both authenticated and anonymous users.
 
     Args:
         background_tasks: FastAPI background tasks.
         file: Uploaded file (PDF or DOCX).
-        current_user: Authenticated user from JWT.
+        current_user: UserContext (authenticated or anonymous).
 
     Returns:
         DocumentUploadResponse with document_id and status.
 
     Raises:
         HTTPException 400: If file type not supported or file too large.
-        HTTPException 401: If not authenticated.
     """
     # Validate content type
     if file.content_type not in ALLOWED_CONTENT_TYPES:
@@ -83,7 +84,7 @@ async def upload_document(
 
     # Generate document ID
     document_id = str(uuid.uuid4())
-    user_id = current_user["id"]
+    user_id = current_user.id  # Works for both authenticated and anonymous
 
     # Save file to temp location for background processing
     # Use appropriate extension based on content type
@@ -112,16 +113,18 @@ async def upload_document(
 
 @router.get("/", response_model=List[DocumentInfo])
 async def list_documents(
-    current_user: dict = Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_optional),
 ) -> List[DocumentInfo]:
     """List all documents for the current user.
 
+    Works for both authenticated and anonymous users.
+
     Args:
-        current_user: Authenticated user from JWT.
+        current_user: UserContext (authenticated or anonymous).
 
     Returns:
         List of DocumentInfo for user's documents.
     """
-    user_id = current_user["id"]
+    user_id = current_user.id  # Works for both authenticated and anonymous
     documents = get_user_documents(user_id)
     return [DocumentInfo(**doc) for doc in documents]
