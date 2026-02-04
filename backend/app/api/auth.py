@@ -16,7 +16,7 @@ Requirement references:
 from uuid import uuid4
 
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.auth import (
@@ -28,6 +28,7 @@ from app.core.auth import (
 )
 from app.core.exceptions import UserExistsException
 from app.core.security import get_current_user
+from app.core.session import clear_session_cookie, get_session_from_request, is_anonymous_session
 from app.db.redis_client import (
     add_token_to_blocklist,
     delete_refresh_token,
@@ -37,6 +38,7 @@ from app.db.redis_client import (
 )
 from app.models.schemas import MessageResponse, RefreshRequest, TokenPair, UserRegister
 from app.models.user import create_user, get_user_by_email
+from app.services.migration_service import migrate_anonymous_to_user
 
 router = APIRouter()
 
@@ -44,18 +46,25 @@ router = APIRouter()
 @router.post("/register", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserRegister,
+    request: Request,
+    response: Response,
     redis_client: redis.Redis = Depends(get_redis),
 ):
     """Register a new user account.
 
     Creates user in Neo4j and returns JWT token pair.
+    If called from an anonymous session, migrates all anonymous data
+    (documents, memories) to the new permanent account.
 
     Args:
         user_data: Email and password for new account
+        request: FastAPI Request for reading anonymous session cookie
+        response: FastAPI Response for clearing session cookie after migration
         redis_client: Redis client for storing refresh token
 
     Returns:
-        TokenPair with access_token, refresh_token, and token_type
+        TokenPair with access_token, refresh_token, and token_type.
+        Migration stats included in X-Migration-Stats header if migration occurred.
 
     Raises:
         UserExistsException: If email already registered
@@ -76,6 +85,19 @@ async def register(
         user_id=user_id,
     )
 
+    # Check for anonymous session to migrate (AUTH-04)
+    anonymous_id = get_session_from_request(request)
+    migration_stats = None
+
+    if anonymous_id and is_anonymous_session(anonymous_id):
+        # Migrate anonymous data to new user
+        migration_stats = await migrate_anonymous_to_user(
+            anonymous_id=anonymous_id,
+            new_user_id=user_id
+        )
+        # Clear anonymous session cookie
+        clear_session_cookie(response)
+
     # Generate token pair
     access_token, refresh_token, jti = create_token_pair(user_data.email, user_id)
 
@@ -86,6 +108,10 @@ async def register(
         token_hash=hash_refresh_token(refresh_token),
         redis_client=redis_client,
     )
+
+    # Include migration stats in response header if migration occurred
+    if migration_stats and any(migration_stats.values()):
+        response.headers["X-Migration-Stats"] = str(migration_stats)
 
     return TokenPair(
         access_token=access_token,
