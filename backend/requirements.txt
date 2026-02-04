@@ -12,6 +12,7 @@ qdrant-client>=1.16.2
 # LLM orchestration
 langchain>=1.0
 langchain-openai>=1.1.7
+langchain-text-splitters
 openai
 
 # Document processing
