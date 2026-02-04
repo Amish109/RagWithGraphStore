@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.error_handlers import register_exception_handlers
 
 
 @asynccontextmanager
@@ -64,6 +65,9 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan,
 )
+
+# Register global exception handlers for consistent error responses
+register_exception_handlers(app)
 
 # CORS middleware (configure for your frontend)
 app.add_middleware(
