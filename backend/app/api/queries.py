@@ -316,11 +316,12 @@ async def query_documents_enhanced(
     request: QueryRequest,
     current_user: UserContext = Depends(get_current_user_optional),
 ):
-    """Enhanced query with confidence scores and highlighted citations.
+    """Enhanced query with confidence scores, highlighted citations, and memory context.
 
     Phase 5 enhanced query endpoint providing:
     - Confidence score indicating model certainty (Success Criteria #6)
     - Highlighted citations with exact text passages (Success Criteria #4)
+    - User memory facts integrated into context (Success Criteria #3, #5)
 
     Supports both authenticated and anonymous users.
     The original /query endpoint remains for backward compatibility.
@@ -334,15 +335,40 @@ async def query_documents_enhanced(
     """
     user_id = current_user.id
 
-    # Step 1: Retrieve relevant context (filtered by user_id)
+    # Step 1: Retrieve relevant document context (filtered by user_id)
     context = await retrieve_relevant_context(
         query=request.query,
         user_id=user_id,
         max_results=request.max_results,
     )
 
-    # Step 2: Handle no context case
-    if not context["chunks"]:
+    # Step 2: Retrieve user memories (if authenticated and not anonymous)
+    # User memories influence query responses through personalization
+    memory_context = []
+    if not current_user.is_anonymous:
+        from app.services.memory_service import search_with_shared
+
+        memories = await search_with_shared(
+            user_id=user_id,
+            query=request.query,
+            limit=3,
+            include_shared=True,  # Include shared company knowledge
+        )
+        memory_context = [
+            {
+                "text": m.get("memory", ""),
+                "filename": "Shared Memory" if m.get("is_shared") else "User Memory",
+                "score": m.get("score", 0.5),
+            }
+            for m in memories
+            if m.get("memory")  # Only include non-empty memories
+        ]
+
+    # Step 3: Combine document + memory context
+    all_context = context["chunks"] + memory_context
+
+    # Step 4: Handle no context case
+    if not all_context:
         return QueryResponseWithCitations(
             answer="I don't know. I couldn't find any relevant information in your documents.",
             confidence=ConfidenceScore(
@@ -353,13 +379,14 @@ async def query_documents_enhanced(
             citations=[],
         )
 
-    # Step 3: Generate answer with confidence using logprobs
+    # Step 5: Generate answer with confidence using logprobs
     result = await generate_answer_with_confidence(
         query=request.query,
-        context=context["chunks"],
+        context=all_context,
     )
 
-    # Step 4: Extract highlighted citations with exact passages
+    # Step 6: Extract highlighted citations with exact passages
+    # Only extract citations from document chunks (not memory context)
     citations = await extract_highlighted_citations(
         answer=result["answer"],
         context_chunks=context["chunks"],
