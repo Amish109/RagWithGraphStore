@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI):
     from app.db.neo4j_client import neo4j_driver, close_neo4j, init_neo4j_schema
     from app.db.qdrant_client import qdrant_client, close_qdrant, init_qdrant_collection
     from app.db.redis_client import close_redis
+    from app.db.postgres_client import close_postgres_pool
+    from app.db.checkpoint_store import setup_checkpointer
     from app.jobs.cleanup import setup_cleanup_scheduler, shutdown_cleanup_scheduler
 
     # Verify Neo4j connection
@@ -47,6 +49,14 @@ async def lifespan(app: FastAPI):
     setup_cleanup_scheduler()
     print("Cleanup scheduler started")
 
+    # Initialize LangGraph checkpoint tables in PostgreSQL
+    try:
+        await setup_checkpointer()
+        print("LangGraph checkpointer initialized")
+    except Exception as e:
+        print(f"Warning: LangGraph checkpointer setup failed: {e}")
+        print("Continuing without LangGraph checkpointing - workflows will use in-memory state")
+
     print("Startup complete")
 
     yield  # Application runs
@@ -57,6 +67,7 @@ async def lifespan(app: FastAPI):
     close_neo4j()
     close_qdrant()
     await close_redis()
+    await close_postgres_pool()
     print("Connections closed")
 
 

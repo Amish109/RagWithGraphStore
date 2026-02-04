@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     ANONYMOUS_DATA_TTL_DAYS: int = 7  # How long to keep anonymous data
     CLEANUP_SCHEDULE_HOUR: int = 3  # Run cleanup at 3 AM
 
+    # PostgreSQL Configuration (for LangGraph checkpointing)
+    POSTGRES_URI: str = "postgresql://localhost:5432/ragapp"
+    POSTGRES_POOL_SIZE: int = 5
+
+    # Memory Management Configuration
+    MEMORY_MAX_TOKENS: int = 4000
+    MEMORY_SUMMARIZATION_THRESHOLD: float = 0.75
+
 
 # Global settings instance
 settings = Settings()
