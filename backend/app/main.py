@@ -17,6 +17,7 @@ async def lifespan(app: FastAPI):
     # Import database clients here to avoid circular imports
     from app.db.neo4j_client import neo4j_driver, close_neo4j, init_neo4j_schema
     from app.db.qdrant_client import qdrant_client, close_qdrant, init_qdrant_collection
+    from app.db.redis_client import close_redis
 
     # Verify Neo4j connection
     neo4j_driver.verify_connectivity()
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
     print("Shutting down - closing database connections...")
     close_neo4j()
     close_qdrant()
+    await close_redis()
     print("Connections closed")
 
 

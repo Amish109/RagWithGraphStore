@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Redis Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 50
+
+    # Token Configuration
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JTI_BLOCKLIST_EXPIRE_SECONDS: int = 604800  # 7 days, match refresh lifetime
+
     # Neo4j Configuration
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USERNAME: str = "neo4j"
