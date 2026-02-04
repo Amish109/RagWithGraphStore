@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 2 - Multi-User Core & Memory Integration (Wave 2 complete)
+**Current focus:** Phase 2 - Multi-User Core & Memory Integration (Wave 3 complete)
 
 ## Current Position
 
 Phase: 2 of 6 (Multi-User Core & Memory Integration)
-Plan: 4 of 7 complete
+Plan: 6 of 7 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 02-03-PLAN.md and 02-04-PLAN.md (Wave 2)
+Last activity: 2026-02-04 - Completed 02-05-PLAN.md and 02-06-PLAN.md (Wave 3)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 3.7 min
-- Total execution time: 0.55 hours
+- Total plans completed: 11
+- Average duration: 3.8 min
+- Total execution time: 0.70 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
-| 02-multi-user-memory | 4 | 15 min | 3.75 min |
+| 02-multi-user-memory | 6 | 24 min | 4.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-05 (4 min), 02-01 (4 min), 02-02 (4 min), 02-03 (3 min), 02-04 (4 min)
+- Last 5 plans: 02-02 (4 min), 02-03 (3 min), 02-04 (4 min), 02-05 (5 min), 02-06 (5 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -79,6 +79,12 @@ Recent decisions affecting current work:
 - **02-04:** SHARED_MEMORY_USER_ID = '__shared__' sentinel for company memory
 - **02-04:** Anonymous users can use memory API (tied to session ID)
 - **02-04:** search_with_shared includes shared only for authenticated users
+- **02-05:** Migration order: Neo4j first, then Qdrant, then Mem0 (by importance)
+- **02-05:** Qdrant migration uses scroll + set_payload (no bulk update API)
+- **02-05:** Mem0 migration uses copy-delete pattern (no user_id update support)
+- **02-06:** APScheduler for daily TTL cleanup at configurable hour (default 3 AM)
+- **02-06:** ANONYMOUS_DATA_TTL_DAYS = 7 (configurable)
+- **02-06:** Admin API at /admin/memory/shared for shared memory management
 
 ### Pending Todos
 
@@ -86,12 +92,12 @@ None yet.
 
 ### Blockers/Concerns
 
-**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Wave 1 and Wave 2 complete. Remaining plans (02-05, 02-06, 02-07) need data migration, TTL cleanup, and security testing.
+**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Waves 1-3 complete. Only Plan 02-07 (multi-tenant isolation security tests) remains.
 
 **Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 2 Wave 2 execution (02-03 and 02-04)
-Stopped at: Completed Phase 2 Wave 2, ready for Wave 3 (02-05, 02-06)
+Last session: 2026-02-04 - Phase 2 Wave 3 execution (02-05 and 02-06)
+Stopped at: Completed Phase 2 Wave 3, ready for Wave 4 (02-07)
 Resume file: None
