@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 5: Differentiation Features - READY
+**Current focus:** Phase 5: Differentiation Features - Wave 1 Complete
 
 ## Current Position
 
-Phase: 5 of 6 (Differentiation Features) - READY TO START
-Plan: 0 of 4 complete
-Status: Ready
-Last activity: 2026-02-04 - Completed 04-05-PLAN.md (Phase 4 COMPLETE)
+Phase: 5 of 6 (Differentiation Features) - In Progress
+Plan: 2 of 4 complete
+Status: In progress
+Last activity: 2026-02-04 - Completed 05-01-PLAN.md and 05-02-PLAN.md (Wave 1)
 
-Progress: [██████████] 100% (Phase 4)
-Overall: [██████████] 70% (21/30 plans across all phases)
+Progress: [█████-----] 50% (Phase 5)
+Overall: [███████░░░] 77% (23/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: 4.6 min
+- Total plans completed: 23
+- Average duration: 4.5 min
 - Total execution time: 1.7 hours
 
 **By Phase:**
@@ -32,10 +32,11 @@ Overall: [██████████] 70% (21/30 plans across all phases)
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
 | 03-ux-streaming | 4 | 20 min | 5.0 min |
 | 04-langgraph-workflows | 5 | 19 min | 3.8 min |
+| 05-differentiation | 2 | 8 min | 4.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (4 min), 04-02 (5 min), 04-03 (5 min), 04-04 (3 min), 04-05 (2 min)
-- Trend: Phase 4 completed efficiently - API endpoint integration straightforward with existing services
+- Last 5 plans: 04-03 (5 min), 04-04 (3 min), 04-05 (2 min), 05-01 (4 min), 05-02 (4 min)
+- Trend: Phase 5 Wave 1 completed efficiently - service pattern established, both plans executed in parallel
 
 *Updated after each plan completion*
 
@@ -122,6 +123,14 @@ Recent decisions affecting current work:
 - **04-05:** ComparisonCitation separate from existing Citation (different fields)
 - **04-05:** Require authentication for comparison endpoint (resource-intensive)
 - **04-05:** Memory updated after each comparison interaction
+- **05-01:** Stuff method for <10000 chars, map-reduce for longer documents
+- **05-01:** Temperature=0.3 for summaries (slight creativity while accurate)
+- **05-01:** In-memory cache dict for summaries (Redis deferred to Phase 6)
+- **05-01:** Fixed deprecated langchain.chains.summarize import with ChatPromptTemplate
+- **05-02:** Three reading levels: eli5 (elementary), general (8th grade), professional (college)
+- **05-02:** Two-stage prompting: simplify then verify reading level
+- **05-02:** Temperature=0.4 for explanations (slightly creative for clarity)
+- **05-02:** Optional document_id for context-aware simplification
 
 ### Pending Todos
 
@@ -135,10 +144,10 @@ None yet.
 
 **Phase 4 (LangGraph Integration):** COMPLETE. All 5 plans executed successfully. Document comparison via LangGraph workflow with GraphRAG multi-hop reasoning, memory summarization, and API endpoint.
 
-**Phase 5 (Differentiation Features):** Ready to start. On-demand summarization, text simplification, confidence scores, and shared knowledge integration.
+**Phase 5 (Differentiation Features):** In progress. Wave 1 complete (05-01, 05-02). On-demand summarization and text simplification services ready. Wave 2 (confidence scores/citations) next.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 4 Wave 3 execution (04-05) - Phase 4 COMPLETE
-Stopped at: Completed 04-05-PLAN.md, ready for Phase 5
+Last session: 2026-02-04 - Phase 5 Wave 1 execution (05-01, 05-02)
+Stopped at: Completed 05-01-PLAN.md and 05-02-PLAN.md, ready for Wave 2
 Resume file: None
