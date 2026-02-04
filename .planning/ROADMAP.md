@@ -12,7 +12,7 @@ This roadmap delivers a production-ready FastAPI backend for intelligent documen
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
+- [x] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
 - [ ] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
 - [ ] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [ ] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
@@ -34,11 +34,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5 plans in 4 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffolding, configuration, database connections (Wave 1)
-- [ ] 01-02-PLAN.md — JWT authentication system (Wave 2)
-- [ ] 01-03-PLAN.md — Embedding and LLM generation services (Wave 2)
-- [ ] 01-04-PLAN.md — Document processing pipeline with dual-store indexing (Wave 3)
-- [ ] 01-05-PLAN.md — Query endpoint with citations and Mem0 config (Wave 4)
+- [x] 01-01-PLAN.md — Project scaffolding, configuration, database connections (Wave 1)
+- [x] 01-02-PLAN.md — JWT authentication system (Wave 2)
+- [x] 01-03-PLAN.md — Embedding and LLM generation services (Wave 2)
+- [x] 01-04-PLAN.md — Document processing pipeline with dual-store indexing (Wave 3)
+- [x] 01-05-PLAN.md — Query endpoint with citations and Mem0 config (Wave 4)
 
 ### Phase 2: Multi-User Core & Memory Integration
 **Goal**: Ensure secure multi-tenant isolation and integrate Mem0 for persistent conversation memory
@@ -133,7 +133,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Core RAG | 0/5 | Planned | - |
+| 1. Foundation & Core RAG | 5/5 | ✓ Complete | 2026-02-04 |
 | 2. Multi-User Core & Memory Integration | 0/0 | Not started | - |
 | 3. UX & Streaming | 0/0 | Not started | - |
 | 4. LangGraph & Advanced Workflows | 0/0 | Not started | - |

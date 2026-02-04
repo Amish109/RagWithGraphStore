@@ -9,17 +9,17 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Document Processing
 
-- [ ] **DOC-01**: User can upload PDF documents to their private memory
-- [ ] **DOC-02**: User can upload DOCX documents to their private memory
+- [x] **DOC-01**: User can upload PDF documents to their private memory
+- [x] **DOC-02**: User can upload DOCX documents to their private memory
 - [ ] **DOC-03**: User sees progress indicator during document upload/processing
 - [ ] **DOC-04**: System generates document summary on upload
 
 ### Query & Response
 
-- [ ] **QRY-01**: User can ask natural language questions about their documents
+- [x] **QRY-01**: User can ask natural language questions about their documents
 - [ ] **QRY-02**: User receives streaming responses (SSE) for queries
-- [ ] **QRY-03**: Responses include source citations with document references
-- [ ] **QRY-04**: System responds "I don't know" when context is insufficient
+- [x] **QRY-03**: Responses include source citations with document references
+- [x] **QRY-04**: System responds "I don't know" when context is insufficient
 - [ ] **QRY-05**: User can compare multiple documents (GraphRAG multi-hop reasoning)
 - [ ] **QRY-06**: User can request document summaries
 - [ ] **QRY-07**: User can request simplified explanations of document content
@@ -42,13 +42,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can register with email and password
-- [ ] **AUTH-02**: User can login and receive JWT access token
+- [x] **AUTH-01**: User can register with email and password
+- [x] **AUTH-02**: User can login and receive JWT access token
 - [ ] **AUTH-03**: Anonymous user gets temporary session with unique ID
 - [ ] **AUTH-04**: Anonymous user's data migrates to account on registration
 - [ ] **AUTH-05**: Temporary anonymous data expires after configured time period
 - [ ] **AUTH-06**: System supports refresh token rotation for extended sessions
-- [ ] **AUTH-07**: User can logout (invalidate session)
+- [x] **AUTH-07**: User can logout (invalidate session)
 - [ ] **AUTH-08**: Admin role with elevated permissions for shared memory management
 
 ### Document Management
@@ -59,24 +59,24 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Configuration & Infrastructure
 
-- [ ] **CFG-01**: All settings configurable via environment variables (Pydantic BaseSettings)
-- [ ] **CFG-02**: System connects to Neo4j for graph storage
-- [ ] **CFG-03**: System connects to Qdrant for vector storage
-- [ ] **CFG-04**: System uses OpenAI API for LLM and embeddings
-- [ ] **CFG-05**: Mem0 SDK configured with Neo4j + Qdrant dual stores
+- [x] **CFG-01**: All settings configurable via environment variables (Pydantic BaseSettings)
+- [x] **CFG-02**: System connects to Neo4j for graph storage
+- [x] **CFG-03**: System connects to Qdrant for vector storage
+- [x] **CFG-04**: System uses OpenAI API for LLM and embeddings
+- [x] **CFG-05**: Mem0 SDK configured with Neo4j + Qdrant dual stores
 
 ### API Endpoints
 
-- [ ] **API-01**: POST /documents/upload - Upload PDF/DOCX document
+- [x] **API-01**: POST /documents/upload - Upload PDF/DOCX document
 - [ ] **API-02**: GET /documents - List user's documents
 - [ ] **API-03**: DELETE /documents/{id} - Delete a document
-- [ ] **API-04**: POST /query - Ask a question (streaming response)
+- [x] **API-04**: POST /query - Ask a question (streaming response)
 - [ ] **API-05**: POST /memory - Add fact to private memory (user) or shared memory (admin only)
 - [ ] **API-06**: GET /memory - Retrieve user's memory/facts
-- [ ] **API-07**: POST /auth/register - Register new user
-- [ ] **API-08**: POST /auth/login - Login and get tokens
+- [x] **API-07**: POST /auth/register - Register new user
+- [x] **API-08**: POST /auth/login - Login and get tokens
 - [ ] **API-09**: POST /auth/refresh - Refresh access token
-- [ ] **API-10**: POST /auth/logout - Logout user
+- [x] **API-10**: POST /auth/logout - Logout user
 
 ## v2 Requirements
 
@@ -128,14 +128,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DOC-01 | Phase 1 | Pending |
-| DOC-02 | Phase 1 | Pending |
+| DOC-01 | Phase 1 | Complete |
+| DOC-02 | Phase 1 | Complete |
 | DOC-03 | Phase 3 | Pending |
 | DOC-04 | Phase 3 | Pending |
-| QRY-01 | Phase 1 | Pending |
+| QRY-01 | Phase 1 | Complete |
 | QRY-02 | Phase 3 | Pending |
-| QRY-03 | Phase 1 | Pending |
-| QRY-04 | Phase 1 | Pending |
+| QRY-03 | Phase 1 | Complete |
+| QRY-04 | Phase 1 | Complete |
 | QRY-05 | Phase 4 | Pending |
 | QRY-06 | Phase 5 | Pending |
 | QRY-07 | Phase 5 | Pending |
@@ -149,32 +149,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 | USR-02 | Phase 2 | Pending |
 | USR-03 | Phase 2 | Pending |
 | USR-04 | Phase 2 | Pending |
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
 | AUTH-03 | Phase 2 | Pending |
 | AUTH-04 | Phase 2 | Pending |
 | AUTH-05 | Phase 2 | Pending |
 | AUTH-06 | Phase 2 | Pending |
-| AUTH-07 | Phase 1 | Pending |
+| AUTH-07 | Phase 1 | Complete |
 | AUTH-08 | Phase 2 | Pending |
 | MGMT-01 | Phase 3 | Pending |
 | MGMT-02 | Phase 3 | Pending |
 | MGMT-03 | Phase 3 | Pending |
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
-| CFG-04 | Phase 1 | Pending |
-| CFG-05 | Phase 1 | Pending |
-| API-01 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Complete |
+| CFG-02 | Phase 1 | Complete |
+| CFG-03 | Phase 1 | Complete |
+| CFG-04 | Phase 1 | Complete |
+| CFG-05 | Phase 1 | Complete |
+| API-01 | Phase 1 | Complete |
 | API-02 | Phase 3 | Pending |
 | API-03 | Phase 3 | Pending |
-| API-04 | Phase 1 | Pending |
+| API-04 | Phase 1 | Complete |
 | API-05 | Phase 5 | Pending |
 | API-06 | Phase 5 | Pending |
-| API-07 | Phase 1 | Pending |
-| API-08 | Phase 1 | Pending |
+| API-07 | Phase 1 | Complete |
+| API-08 | Phase 1 | Complete |
 | API-09 | Phase 6 | Pending |
-| API-10 | Phase 1 | Pending |
+| API-10 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 38 total
