@@ -151,3 +151,18 @@ class MemoryListResponse(BaseModel):
 
     memories: List[MemoryResponse]
     count: int
+
+
+# Error response schemas
+
+
+class ErrorResponse(BaseModel):
+    """Schema for standardized error responses.
+
+    Used by global exception handlers to return consistent error format.
+    All API errors use this schema for predictable client handling.
+    """
+
+    error: str  # Error type identifier (e.g., "validation_error", "not_found")
+    message: str  # User-friendly message
+    detail: Optional[str] = None  # Optional additional context
