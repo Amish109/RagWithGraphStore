@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
 - [x] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
-- [ ] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
+- [x] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [ ] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
 - [ ] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
 - [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing
@@ -77,10 +77,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Global exception handlers and ErrorResponse schema (Wave 1)
-- [ ] 03-02-PLAN.md — Task tracking for document processing progress (Wave 1)
-- [ ] 03-03-PLAN.md — SSE streaming for query responses (Wave 2)
-- [ ] 03-04-PLAN.md — Document management: delete, summaries, enhanced listing (Wave 2)
+- [x] 03-01-PLAN.md — Global exception handlers and ErrorResponse schema (Wave 1)
+- [x] 03-02-PLAN.md — Task tracking for document processing progress (Wave 1)
+- [x] 03-03-PLAN.md — SSE streaming for query responses (Wave 2)
+- [x] 03-04-PLAN.md — Document management: delete, summaries, enhanced listing (Wave 2)
 
 ### Phase 4: LangGraph & Advanced Workflows
 **Goal**: Enable complex multi-step reasoning for document comparison and advanced query workflows
@@ -146,7 +146,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation & Core RAG | 5/5 | Complete | 2026-02-04 |
 | 2. Multi-User Core & Memory Integration | 7/7 | Complete | 2026-02-04 |
-| 3. UX & Streaming | 0/4 | Planned | - |
+| 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
 | 4. LangGraph & Advanced Workflows | 0/5 | Planned | - |
 | 5. Differentiation Features | 0/4 | Planned | - |
 | 6. Production Hardening | 0/0 | Not started | - |

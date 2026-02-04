@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 3: UX & Streaming - Wave 1 Complete
+**Current focus:** Phase 3: UX & Streaming - COMPLETE
 
 ## Current Position
 
-Phase: 3 of 6 (UX & Streaming)
-Plan: 2 of 4 complete
-Status: In Progress - Wave 1 Complete
-Last activity: 2026-02-04 - Completed 03-01-PLAN.md and 03-02-PLAN.md (Wave 1)
+Phase: 3 of 6 (UX & Streaming) - COMPLETE
+Plan: 4 of 4 complete
+Status: Phase Complete
+Last activity: 2026-02-04 - Completed 03-03-PLAN.md and 03-04-PLAN.md (Wave 2)
 
-Progress: [█████░░░░░] 50% (Phase 3)
-Overall: [█████░░░░░] 47% (14/30 plans across all phases)
+Progress: [██████████] 100% (Phase 3)
+Overall: [██████░░░░] 53% (16/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 16
 - Average duration: 5.0 min
-- Total execution time: 1.2 hours
+- Total execution time: 1.4 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Overall: [█████░░░░░] 47% (14/30 plans across all phases)
 |-------|-------|-------|----------|
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
-| 03-ux-streaming | 2 | 9 min | 4.5 min |
+| 03-ux-streaming | 4 | 20 min | 5.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-05 (5 min), 02-06 (5 min), 02-07 (19 min), 03-01 (4 min), 03-02 (5 min)
-- Trend: Wave 1 plans efficient - error handling and task tracking straightforward
+- Last 5 plans: 02-07 (19 min), 03-01 (4 min), 03-02 (5 min), 03-03 (5 min), 03-04 (6 min)
+- Trend: Phase 3 plans efficient - SSE streaming and document management straightforward
 
 *Updated after each plan completion*
 
@@ -96,6 +96,12 @@ Recent decisions affecting current work:
 - **03-02:** In-memory task tracking (not Redis) for simplicity - upgrade path available
 - **03-02:** 1 hour TTL for task cleanup to prevent memory exhaustion
 - **03-02:** Progress percentages: EXTRACTING=10%, CHUNKING=25%, EMBEDDING=40%, INDEXING=70%, SUMMARIZING=85%, COMPLETED=100%
+- **03-03:** sse-starlette over built-in StreamingResponse for W3C SSE compliance
+- **03-03:** X-Accel-Buffering: no header to disable nginx buffering
+- **03-03:** Separate streaming LLM instance with streaming=True per request
+- **03-04:** Cascade delete: Qdrant first, then Neo4j (orphaned vectors harmless)
+- **03-04:** map_reduce summarization for >4 chunks to prevent token overflow
+- **03-04:** Summary generated BEFORE indexing for storage with document
 
 ### Pending Todos
 
@@ -105,12 +111,12 @@ None yet.
 
 **Phase 2 (Multi-User Core):** COMPLETE. All 7 plans executed successfully. Multi-tenant isolation verified through comprehensive security tests.
 
-**Phase 3 (UX & Streaming):** Wave 1 complete. Error handling and task tracking in place. Ready for Wave 2: SSE streaming (03-03) and document management (03-04).
+**Phase 3 (UX & Streaming):** COMPLETE. All 4 plans executed successfully. SSE streaming, document management, error handling, and task tracking all in place.
 
 **Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 3 Wave 1 execution (03-01, 03-02)
-Stopped at: Completed Wave 1, ready for Wave 2 (03-03, 03-04)
+Last session: 2026-02-04 - Phase 3 Wave 2 execution (03-03, 03-04)
+Stopped at: Completed Phase 3, ready for Phase 4 (LangGraph & Advanced Workflows)
 Resume file: None
