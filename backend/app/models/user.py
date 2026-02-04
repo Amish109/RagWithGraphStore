@@ -10,13 +10,14 @@ from app.config import settings
 from app.db.neo4j_client import neo4j_driver
 
 
-def create_user(email: str, hashed_password: str, user_id: str) -> dict:
+def create_user(email: str, hashed_password: str, user_id: str, role: str = "user") -> dict:
     """Create a new user in Neo4j.
 
     Args:
         email: User's email address (must be unique)
         hashed_password: Pre-hashed password (never pass plain text)
         user_id: UUID string for the user
+        role: User role ("user" or "admin"), defaults to "user"
 
     Returns:
         Dict containing the created user's properties
@@ -28,6 +29,7 @@ def create_user(email: str, hashed_password: str, user_id: str) -> dict:
                 id: $id,
                 email: $email,
                 hashed_password: $hashed_password,
+                role: $role,
                 created_at: datetime()
             })
             RETURN u
@@ -35,6 +37,7 @@ def create_user(email: str, hashed_password: str, user_id: str) -> dict:
             id=user_id,
             email=email,
             hashed_password=hashed_password,
+            role=role,
         )
         record = result.single()
         return dict(record["u"])

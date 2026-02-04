@@ -106,33 +106,36 @@ def decode_access_token(token: str) -> Optional[dict]:
         return None
 
 
-def create_token_pair(user_email: str, user_id: str) -> Tuple[str, str, str]:
+def create_token_pair(user_email: str, user_id: str, role: str = "user") -> Tuple[str, str, str]:
     """Create access token and refresh token pair.
 
     Each token pair shares a JTI (JWT ID) for tracking and revocation.
     Refresh token is long-lived, access token is short-lived.
+    Role is included for fast authorization without database lookup.
 
     Args:
         user_email: User's email address (subject claim).
         user_id: User's unique identifier.
+        role: User's role ("user" or "admin"), defaults to "user".
 
     Returns:
         Tuple of (access_token, refresh_token, jti).
     """
     jti = secrets.token_urlsafe(32)  # Unique token ID
 
-    # Access token (short-lived)
+    # Access token (short-lived) - includes role for fast auth
     access_token = create_access_token(
-        data={"sub": user_email, "user_id": user_id, "jti": jti}
+        data={"sub": user_email, "user_id": user_id, "role": role, "jti": jti}
     )
 
-    # Refresh token (long-lived)
+    # Refresh token (long-lived) - includes role for rotation
     refresh_expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
     refresh_payload = {
         "sub": user_email,
         "user_id": user_id,
+        "role": role,
         "jti": jti,
         "exp": refresh_expire,
         "type": "refresh",

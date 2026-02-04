@@ -132,8 +132,10 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Generate token pair
-    access_token, refresh_token, jti = create_token_pair(user["email"], user["id"])
+    # Generate token pair with user's role
+    access_token, refresh_token, jti = create_token_pair(
+        user["email"], user["id"], user.get("role", "user")
+    )
 
     # Store hashed refresh token in Redis
     await store_refresh_token(
@@ -218,8 +220,9 @@ async def refresh_tokens(
     # Delete old token (single-use enforcement)
     await delete_refresh_token(user_id, jti, redis_client)
 
-    # Issue new token pair
-    new_access, new_refresh, new_jti = create_token_pair(user_email, user_id)
+    # Issue new token pair - preserve role from original token
+    user_role = payload.get("role", "user")
+    new_access, new_refresh, new_jti = create_token_pair(user_email, user_id, user_role)
 
     # Store new refresh token
     await store_refresh_token(

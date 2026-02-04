@@ -42,7 +42,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         token: JWT token extracted from Authorization header
 
     Returns:
-        User dict from database with additional token info (jti)
+        User dict from database with additional token info (jti, role)
 
     Raises:
         CredentialsException: If token is invalid or user not found
@@ -66,6 +66,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     jti = payload.get("jti")
     if jti:
         user["jti"] = jti
+
+    # Include role from token (faster than DB lookup each request)
+    # Token role is authoritative - DB role used for initial login
+    role = payload.get("role", user.get("role", "user"))
+    user["role"] = role
 
     return user
 
