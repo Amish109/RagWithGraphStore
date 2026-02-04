@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 1 of 6 (Foundation & Core RAG)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 01-01-PLAN.md (Project Setup and Database Connections)
+Last activity: 2026-02-04 - Completed 01-03-PLAN.md (AI Services - Embedding and Generation)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 0.05 hours
+- Total plans completed: 2
+- Average duration: 3.5 min
+- Total execution time: 0.12 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation-core-rag | 1 | 3 min | 3 min |
+| 01-foundation-core-rag | 2 | 7 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min)
-- Trend: N/A (first plan)
+- Last 5 plans: 01-01 (3 min), 01-03 (4 min)
+- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 - **01-01:** Singleton database clients (neo4j_driver, qdrant_client) at module level for simplicity
 - **01-01:** COSINE distance for Qdrant per OpenAI embedding recommendations
 - **01-01:** Multi-tenant payload indexes created from start (user_id, document_id)
+- **01-03:** AsyncOpenAI client for non-blocking embedding operations
+- **01-03:** Temperature=0 for deterministic LLM responses
+- **01-03:** langchain_core.prompts import path (not deprecated langchain.prompts)
 
 ### Pending Todos
 
@@ -62,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Plan 01-01 execution
-Stopped at: Completed 01-01-PLAN.md, ready for 01-02-PLAN.md
+Last session: 2026-02-04 - Plan 01-03 execution
+Stopped at: Completed 01-03-PLAN.md, ready for 01-02-PLAN.md or 01-04-PLAN.md
 Resume file: None
