@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 1 of 6 (Foundation & Core RAG)
-Plan: 4 of 4 complete
+Plan: 5 of 5 complete
 Status: Phase complete
-Last activity: 2026-02-04 - Completed 01-04-PLAN.md (Document Upload Pipeline)
+Last activity: 2026-02-04 - Completed 01-05-PLAN.md (Query Endpoint with Citations)
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 3.5 min
-- Total execution time: 0.23 hours
+- Total plans completed: 5
+- Average duration: 3.6 min
+- Total execution time: 0.30 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation-core-rag | 4 | 14 min | 3.5 min |
+| 01-foundation-core-rag | 5 | 18 min | 3.6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-03 (4 min), 01-02 (3 min), 01-04 (4 min)
+- Last 5 plans: 01-01 (3 min), 01-03 (4 min), 01-02 (3 min), 01-04 (4 min), 01-05 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -60,6 +60,10 @@ Recent decisions affecting current work:
 - **01-04:** RecursiveCharacterTextSplitter with semantic separators (prevents poor chunking)
 - **01-04:** Shared UUIDs between Neo4j chunks and Qdrant vectors for cross-referencing
 - **01-04:** Background task processing to avoid blocking API
+- **01-05:** User_id filtering on all Qdrant searches for multi-tenant isolation (Pitfall #6)
+- **01-05:** Neo4j enrichment to add filename metadata to search results
+- **01-05:** Separate 'memory' collection from 'documents' for Mem0 (Pitfall #1)
+- **01-05:** Lazy Mem0 initialization defers connection until first use
 
 ### Pending Todos
 
@@ -73,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Plan 01-04 execution
-Stopped at: Completed Phase 1 (01-04-PLAN.md), ready for Phase 2
+Last session: 2026-02-04 - Plan 01-05 execution
+Stopped at: Completed Phase 1 (01-05-PLAN.md), ready for Phase 2
 Resume file: None
