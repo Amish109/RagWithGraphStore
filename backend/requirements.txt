@@ -26,6 +26,9 @@ pwdlib[argon2]
 # Utilities
 python-dotenv
 
+# SSE streaming
+sse-starlette>=2.0.0
+
 # Development dependencies
 pytest
 pytest-asyncio
