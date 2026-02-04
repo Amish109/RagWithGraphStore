@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 3: UX & Streaming - COMPLETE
+**Current focus:** Phase 4: LangGraph & Advanced Workflows - IN PROGRESS
 
 ## Current Position
 
-Phase: 3 of 6 (UX & Streaming) - COMPLETE
-Plan: 4 of 4 complete
-Status: Phase Complete
-Last activity: 2026-02-04 - Completed 03-03-PLAN.md and 03-04-PLAN.md (Wave 2)
+Phase: 4 of 6 (LangGraph & Advanced Workflows) - IN PROGRESS
+Plan: 2 of 5 complete (Wave 1 done)
+Status: In Progress
+Last activity: 2026-02-04 - Completed 04-01-PLAN.md and 04-02-PLAN.md (Wave 1)
 
-Progress: [██████████] 100% (Phase 3)
-Overall: [██████░░░░] 53% (16/30 plans across all phases)
+Progress: [████░░░░░░] 40% (Phase 4)
+Overall: [███████░░░] 60% (18/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
-- Average duration: 5.0 min
-- Total execution time: 1.4 hours
+- Total plans completed: 18
+- Average duration: 4.9 min
+- Total execution time: 1.6 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Overall: [██████░░░░] 53% (16/30 plans across all phases)
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
 | 03-ux-streaming | 4 | 20 min | 5.0 min |
+| 04-langgraph-workflows | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-07 (19 min), 03-01 (4 min), 03-02 (5 min), 03-03 (5 min), 03-04 (6 min)
-- Trend: Phase 3 plans efficient - SSE streaming and document management straightforward
+- Last 5 plans: 03-02 (5 min), 03-03 (5 min), 03-04 (6 min), 04-01 (4 min), 04-02 (5 min)
+- Trend: Phase 4 Wave 1 efficient - PostgreSQL checkpointing and GraphRAG service straightforward
 
 *Updated after each plan completion*
 
@@ -102,6 +103,14 @@ Recent decisions affecting current work:
 - **03-04:** Cascade delete: Qdrant first, then Neo4j (orphaned vectors harmless)
 - **03-04:** map_reduce summarization for >4 chunks to prevent token overflow
 - **03-04:** Summary generated BEFORE indexing for storage with document
+- **04-01:** psycopg_pool.AsyncConnectionPool for async PostgreSQL management
+- **04-01:** Lazy initialization for PostgreSQL pool (consistent with other clients)
+- **04-01:** Graceful fallback if PostgreSQL unavailable (warning, not crash)
+- **04-01:** MEMORY_MAX_TOKENS=4000, MEMORY_SUMMARIZATION_THRESHOLD=0.75
+- **04-02:** LIMIT 50 on all graph queries to prevent explosion (Pitfall #3)
+- **04-02:** Fallback DOCUMENT_CONTEXT_QUERY when Entity nodes don't exist
+- **04-02:** include_graph_context=False default for backward compatibility
+- **04-02:** MatchAny for document filtering in retrieve_for_documents
 
 ### Pending Todos
 
@@ -113,10 +122,10 @@ None yet.
 
 **Phase 3 (UX & Streaming):** COMPLETE. All 4 plans executed successfully. SSE streaming, document management, error handling, and task tracking all in place.
 
-**Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
+**Phase 4 (LangGraph Integration):** Wave 1 complete. PostgreSQL checkpointing and GraphRAG multi-hop retrieval service in place. Ready for document comparison workflow (Wave 2).
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 3 Wave 2 execution (03-03, 03-04)
-Stopped at: Completed Phase 3, ready for Phase 4 (LangGraph & Advanced Workflows)
+Last session: 2026-02-04 - Phase 4 Wave 1 execution (04-01, 04-02)
+Stopped at: Completed Wave 1, ready for Wave 2 (04-03, 04-04)
 Resume file: None
