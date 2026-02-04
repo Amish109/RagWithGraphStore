@@ -4,10 +4,13 @@ Provides:
 - qdrant_client: Singleton client instance for Qdrant connections
 - close_qdrant(): Close the client connection
 - init_qdrant_collection(): Initialize collection with proper configuration
+- upsert_chunks(): Insert or update document chunks with embeddings
 """
 
+from typing import Dict, List
+
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, OptimizersConfigDiff
+from qdrant_client.models import Distance, PointStruct, VectorParams, OptimizersConfigDiff
 
 from app.config import settings
 
@@ -79,3 +82,38 @@ def init_qdrant_collection() -> None:
     )
 
     print(f"Qdrant collection '{collection_name}' created with dimension {settings.OPENAI_EMBEDDING_DIMENSIONS}")
+
+
+def upsert_chunks(chunks: List[Dict]) -> None:
+    """Insert or update document chunks with embeddings in Qdrant.
+
+    Args:
+        chunks: List of chunk dictionaries with keys:
+            - id: UUID string for the chunk
+            - vector: Embedding vector (list of floats)
+            - text: Chunk text content
+            - document_id: UUID of parent document
+            - user_id: ID of owning user
+            - position: Position index in document
+
+    CRITICAL: Always includes user_id in payload for multi-tenant filtering.
+    Prevents Pitfall #6 (no multi-tenant filtering).
+    """
+    points = [
+        PointStruct(
+            id=chunk["id"],
+            vector=chunk["vector"],
+            payload={
+                "text": chunk["text"],
+                "document_id": chunk["document_id"],
+                "user_id": chunk["user_id"],  # CRITICAL: Required for multi-tenant isolation
+                "position": chunk["position"],
+            },
+        )
+        for chunk in chunks
+    ]
+
+    qdrant_client.upsert(
+        collection_name=settings.QDRANT_COLLECTION,
+        points=points,
+    )
