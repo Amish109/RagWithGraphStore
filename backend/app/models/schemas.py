@@ -166,3 +166,21 @@ class ErrorResponse(BaseModel):
     error: str  # Error type identifier (e.g., "validation_error", "not_found")
     message: str  # User-friendly message
     detail: Optional[str] = None  # Optional additional context
+
+
+# Task status schemas
+
+
+class TaskStatusResponse(BaseModel):
+    """Schema for document processing status response.
+
+    Used by GET /documents/{document_id}/status to report progress.
+    Progress stages: pending(0%), extracting(10%), chunking(25%),
+    embedding(40%), indexing(70%), summarizing(85%), completed(100%).
+    """
+
+    document_id: str
+    status: str  # TaskStatus value (pending, extracting, chunking, etc.)
+    progress: int  # 0-100 percentage
+    message: str  # Human-readable status message
+    error: Optional[str] = None  # Error details if status is "failed"
