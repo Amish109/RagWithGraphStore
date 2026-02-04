@@ -117,3 +117,37 @@ class QueryResponse(BaseModel):
 
     answer: str
     citations: List[Citation]
+
+
+# Memory schemas
+
+
+class MemoryAddRequest(BaseModel):
+    """Schema for adding a memory."""
+
+    content: str
+    metadata: Optional[dict] = None
+
+
+class MemorySearchRequest(BaseModel):
+    """Schema for searching memories."""
+
+    query: str
+    limit: int = 5
+
+
+class MemoryResponse(BaseModel):
+    """Schema for a single memory in responses."""
+
+    id: str
+    memory: str
+    metadata: Optional[dict] = None
+    score: Optional[float] = None
+    is_shared: Optional[bool] = None
+
+
+class MemoryListResponse(BaseModel):
+    """Schema for list of memories response."""
+
+    memories: List[MemoryResponse]
+    count: int
