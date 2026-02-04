@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     JTI_BLOCKLIST_EXPIRE_SECONDS: int = 604800  # 7 days, match refresh lifetime
 
+    # Anonymous Session Configuration
+    ANONYMOUS_SESSION_EXPIRE_DAYS: int = 7
+    ANONYMOUS_PREFIX: str = "anon_"
+    COOKIE_SECURE: bool = False  # Set True for production (HTTPS required)
+    COOKIE_SAMESITE: str = "lax"
+
     # Neo4j Configuration
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USERNAME: str = "neo4j"
