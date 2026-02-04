@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 5: Differentiation Features - Wave 1 Complete
+**Current focus:** Phase 5: Differentiation Features - Wave 2 Complete
 
 ## Current Position
 
 Phase: 5 of 6 (Differentiation Features) - In Progress
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 05-01-PLAN.md and 05-02-PLAN.md (Wave 1)
+Last activity: 2026-02-04 - Completed 05-03-PLAN.md (Wave 2)
 
-Progress: [█████-----] 50% (Phase 5)
-Overall: [███████░░░] 77% (23/30 plans across all phases)
+Progress: [███████░░░] 75% (Phase 5)
+Overall: [████████░░] 80% (24/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
-- Average duration: 4.5 min
-- Total execution time: 1.7 hours
+- Total plans completed: 24
+- Average duration: 4.4 min
+- Total execution time: 1.8 hours
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Overall: [███████░░░] 77% (23/30 plans across all phases)
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
 | 03-ux-streaming | 4 | 20 min | 5.0 min |
 | 04-langgraph-workflows | 5 | 19 min | 3.8 min |
-| 05-differentiation | 2 | 8 min | 4.0 min |
+| 05-differentiation | 3 | 12 min | 4.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (5 min), 04-04 (3 min), 04-05 (2 min), 05-01 (4 min), 05-02 (4 min)
-- Trend: Phase 5 Wave 1 completed efficiently - service pattern established, both plans executed in parallel
+- Last 5 plans: 04-04 (3 min), 04-05 (2 min), 05-01 (4 min), 05-02 (4 min), 05-03 (4 min)
+- Trend: Phase 5 Wave 2 completed efficiently - confidence and citations added in single plan
 
 *Updated after each plan completion*
 
@@ -131,6 +131,11 @@ Recent decisions affecting current work:
 - **05-02:** Two-stage prompting: simplify then verify reading level
 - **05-02:** Temperature=0.4 for explanations (slightly creative for clarity)
 - **05-02:** Optional document_id for context-aware simplification
+- **05-03:** Geometric mean for confidence (stable for sequence comparison)
+- **05-03:** Thresholds: >=0.85 high, >=0.60 medium, <0.60 low
+- **05-03:** Verbatim verification prevents citation hallucination
+- **05-03:** Fallback to 200-char truncation if exact match fails
+- **05-03:** /enhanced endpoint for Phase 5 features, /query unchanged
 
 ### Pending Todos
 
@@ -144,10 +149,10 @@ None yet.
 
 **Phase 4 (LangGraph Integration):** COMPLETE. All 5 plans executed successfully. Document comparison via LangGraph workflow with GraphRAG multi-hop reasoning, memory summarization, and API endpoint.
 
-**Phase 5 (Differentiation Features):** In progress. Wave 1 complete (05-01, 05-02). On-demand summarization and text simplification services ready. Wave 2 (confidence scores/citations) next.
+**Phase 5 (Differentiation Features):** In progress. Waves 1-2 complete (05-01, 05-02, 05-03). On-demand summarization, text simplification, confidence scores, and highlighted citations ready. Wave 3 (memory API) next.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 5 Wave 1 execution (05-01, 05-02)
-Stopped at: Completed 05-01-PLAN.md and 05-02-PLAN.md, ready for Wave 2
+Last session: 2026-02-04 - Phase 5 Wave 2 execution (05-03)
+Stopped at: Completed 05-03-PLAN.md, ready for Wave 3 (05-04)
 Resume file: None
