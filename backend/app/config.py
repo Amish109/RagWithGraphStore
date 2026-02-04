@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Memory Configuration
+    SHARED_MEMORY_USER_ID: str = "__shared__"  # Sentinel for company-wide memory
+
 
 # Global settings instance
 settings = Settings()
