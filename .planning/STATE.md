@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 2 - Multi-User Core & Memory Integration (Wave 1 complete)
+**Current focus:** Phase 2 - Multi-User Core & Memory Integration (Wave 2 complete)
 
 ## Current Position
 
 Phase: 2 of 6 (Multi-User Core & Memory Integration)
-Plan: 2 of 7 complete
+Plan: 4 of 7 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 02-01-PLAN.md and 02-02-PLAN.md (Wave 1)
+Last activity: 2026-02-04 - Completed 02-03-PLAN.md and 02-04-PLAN.md (Wave 2)
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 9
 - Average duration: 3.7 min
-- Total execution time: 0.43 hours
+- Total execution time: 0.55 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
-| 02-multi-user-memory | 2 | 8 min | 4.0 min |
+| 02-multi-user-memory | 4 | 15 min | 3.75 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-04 (4 min), 01-05 (4 min), 02-01 (4 min), 02-02 (4 min)
+- Last 5 plans: 01-05 (4 min), 02-01 (4 min), 02-02 (4 min), 02-03 (3 min), 02-04 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -73,6 +73,12 @@ Recent decisions affecting current work:
 - **02-02:** anon_ prefix distinguishes anonymous from authenticated user IDs
 - **02-02:** UserContext schema provides unified interface for all endpoints
 - **02-02:** COOKIE_SECURE=False for local dev, True for production
+- **02-03:** Role stored in JWT for fast authorization (avoids DB lookup per request)
+- **02-03:** Default role is 'user', admin assigned manually
+- **02-03:** RoleChecker uses get_current_user (requires auth), not optional variant
+- **02-04:** SHARED_MEMORY_USER_ID = '__shared__' sentinel for company memory
+- **02-04:** Anonymous users can use memory API (tied to session ID)
+- **02-04:** search_with_shared includes shared only for authenticated users
 
 ### Pending Todos
 
@@ -80,12 +86,12 @@ None yet.
 
 ### Blockers/Concerns
 
-**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Need deeper research during planning for security validation patterns, query-time filtering enforcement, and cross-tenant access testing strategies. Wave 1 (02-01, 02-02) complete, remaining plans need this context.
+**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Wave 1 and Wave 2 complete. Remaining plans (02-05, 02-06, 02-07) need data migration, TTL cleanup, and security testing.
 
 **Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 2 Wave 1 execution (02-01 and 02-02)
-Stopped at: Completed Phase 2 Wave 1, ready for Wave 2 (02-03, 02-04)
+Last session: 2026-02-04 - Phase 2 Wave 2 execution (02-03 and 02-04)
+Stopped at: Completed Phase 2 Wave 2, ready for Wave 3 (02-05, 02-06)
 Resume file: None
