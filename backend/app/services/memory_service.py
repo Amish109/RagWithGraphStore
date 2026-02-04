@@ -313,6 +313,10 @@ async def search_with_shared(
     else:
         results = user_results if isinstance(user_results, list) else []
 
+    # Mark personal memories
+    for r in results:
+        r["is_shared"] = False
+
     if include_shared:
         # Also search shared company memory
         shared_results = memory.search(
@@ -332,4 +336,49 @@ async def search_with_shared(
             mem["is_shared"] = True
             results.append(mem)
 
-    return results[:limit]
+    # Return more results when including shared (up to double the limit)
+    return results[:limit * 2] if include_shared else results[:limit]
+
+
+async def get_shared_memories(limit: int = 50) -> List[dict]:
+    """Get all shared company memories.
+
+    ADMIN ONLY - used for listing shared memories in admin panel.
+
+    Args:
+        limit: Maximum number of memories to return.
+
+    Returns:
+        List of all shared company memories.
+    """
+    memory = get_mem0()
+
+    results = memory.get_all(user_id=settings.SHARED_MEMORY_USER_ID, limit=limit)
+
+    # Handle both list and dict responses from Mem0
+    if isinstance(results, dict):
+        return results.get("results", [])
+    return results if isinstance(results, list) else []
+
+
+async def delete_shared_memory(memory_id: str) -> bool:
+    """Delete a shared memory.
+
+    ADMIN ONLY - removes a fact from company-wide memory.
+
+    NOTE: Mem0 has a known bug where deletion doesn't clean Neo4j
+    (GitHub issue #3245). Orphan cleanup is handled by scheduled job.
+
+    Args:
+        memory_id: ID of the shared memory to delete.
+
+    Returns:
+        True if deletion succeeded, False otherwise.
+    """
+    memory = get_mem0()
+
+    try:
+        memory.delete(memory_id)
+        return True
+    except Exception:
+        return False
