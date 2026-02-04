@@ -5,32 +5,32 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 1 - Foundation & Core RAG
+**Current focus:** Phase 1 - Foundation & Core RAG (COMPLETE)
 
 ## Current Position
 
 Phase: 1 of 6 (Foundation & Core RAG)
-Plan: 3 of 4 complete
-Status: In progress
-Last activity: 2026-02-04 - Completed 01-02-PLAN.md (JWT Authentication)
+Plan: 4 of 4 complete
+Status: Phase complete
+Last activity: 2026-02-04 - Completed 01-04-PLAN.md (Document Upload Pipeline)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 3.3 min
-- Total execution time: 0.17 hours
+- Total plans completed: 4
+- Average duration: 3.5 min
+- Total execution time: 0.23 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation-core-rag | 3 | 10 min | 3.3 min |
+| 01-foundation-core-rag | 4 | 14 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-03 (4 min), 01-02 (3 min)
+- Last 5 plans: 01-01 (3 min), 01-03 (4 min), 01-02 (3 min), 01-04 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -56,6 +56,10 @@ Recent decisions affecting current work:
 - **01-03:** AsyncOpenAI client for non-blocking embedding operations
 - **01-03:** Temperature=0 for deterministic LLM responses
 - **01-03:** langchain_core.prompts import path (not deprecated langchain.prompts)
+- **01-04:** pymupdf4llm for PDF extraction (Markdown output preserves structure)
+- **01-04:** RecursiveCharacterTextSplitter with semantic separators (prevents poor chunking)
+- **01-04:** Shared UUIDs between Neo4j chunks and Qdrant vectors for cross-referencing
+- **01-04:** Background task processing to avoid blocking API
 
 ### Pending Todos
 
@@ -69,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Plan 01-02 execution
-Stopped at: Completed 01-02-PLAN.md and 01-03-PLAN.md, ready for 01-04-PLAN.md
+Last session: 2026-02-04 - Plan 01-04 execution
+Stopped at: Completed Phase 1 (01-04-PLAN.md), ready for Phase 2
 Resume file: None
