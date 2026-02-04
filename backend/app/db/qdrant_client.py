@@ -10,7 +10,15 @@ Provides:
 from typing import Dict, List
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams, OptimizersConfigDiff
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+    OptimizersConfigDiff,
+)
 
 from app.config import settings
 
@@ -117,3 +125,42 @@ def upsert_chunks(chunks: List[Dict]) -> None:
         collection_name=settings.QDRANT_COLLECTION,
         points=points,
     )
+
+
+def search_similar_chunks(
+    query_vector: List[float], user_id: str, limit: int = 10
+) -> List[Dict]:
+    """Search for similar chunks filtered by user_id.
+
+    CRITICAL: Always filter by user_id for multi-tenant isolation.
+    Prevents cross-user data access (Pitfall #6).
+
+    Args:
+        query_vector: Embedding vector for the query.
+        user_id: ID of the user to filter results for.
+        limit: Maximum number of results to return.
+
+    Returns:
+        List of chunk dictionaries with id, score, text, document_id, position.
+    """
+    results = qdrant_client.search(
+        collection_name=settings.QDRANT_COLLECTION,
+        query_vector=query_vector,
+        query_filter=Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        ),
+        limit=limit,
+        with_payload=True,
+        with_vectors=False,  # Save bandwidth - we don't need vectors in response
+    )
+
+    return [
+        {
+            "id": str(result.id),
+            "score": result.score,
+            "text": result.payload.get("text", ""),
+            "document_id": result.payload.get("document_id", ""),
+            "position": result.payload.get("position", 0),
+        }
+        for result in results
+    ]
