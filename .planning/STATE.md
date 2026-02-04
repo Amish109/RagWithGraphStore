@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 4: LangGraph & Advanced Workflows - IN PROGRESS
+**Current focus:** Phase 5: Differentiation Features - READY
 
 ## Current Position
 
-Phase: 4 of 6 (LangGraph & Advanced Workflows) - IN PROGRESS
-Plan: 4 of 5 complete (Wave 1 + Wave 2 done)
-Status: In Progress
-Last activity: 2026-02-04 - Completed 04-03-PLAN.md and 04-04-PLAN.md (Wave 2)
+Phase: 5 of 6 (Differentiation Features) - READY TO START
+Plan: 0 of 4 complete
+Status: Ready
+Last activity: 2026-02-04 - Completed 04-05-PLAN.md (Phase 4 COMPLETE)
 
-Progress: [████████░░] 80% (Phase 4)
-Overall: [████████░░] 67% (20/30 plans across all phases)
+Progress: [██████████] 100% (Phase 4)
+Overall: [██████████] 70% (21/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
-- Average duration: 4.8 min
+- Total plans completed: 21
+- Average duration: 4.6 min
 - Total execution time: 1.7 hours
 
 **By Phase:**
@@ -31,11 +31,11 @@ Overall: [████████░░] 67% (20/30 plans across all phases)
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
 | 03-ux-streaming | 4 | 20 min | 5.0 min |
-| 04-langgraph-workflows | 4 | 17 min | 4.3 min |
+| 04-langgraph-workflows | 5 | 19 min | 3.8 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-04 (6 min), 04-01 (4 min), 04-02 (5 min), 04-03 (5 min), 04-04 (3 min)
-- Trend: Phase 4 Wave 2 efficient - document comparison workflow and memory summarizer straightforward
+- Last 5 plans: 04-01 (4 min), 04-02 (5 min), 04-03 (5 min), 04-04 (3 min), 04-05 (2 min)
+- Trend: Phase 4 completed efficiently - API endpoint integration straightforward with existing services
 
 *Updated after each plan completion*
 
@@ -119,6 +119,9 @@ Recent decisions affecting current work:
 - **04-04:** Recent 5 interactions always preserved verbatim (Pitfall #4)
 - **04-04:** LLM temperature=0.3 for summaries (slightly creative for quality)
 - **04-04:** Delete-then-add pattern for memory consolidation
+- **04-05:** ComparisonCitation separate from existing Citation (different fields)
+- **04-05:** Require authentication for comparison endpoint (resource-intensive)
+- **04-05:** Memory updated after each comparison interaction
 
 ### Pending Todos
 
@@ -130,10 +133,12 @@ None yet.
 
 **Phase 3 (UX & Streaming):** COMPLETE. All 4 plans executed successfully. SSE streaming, document management, error handling, and task tracking all in place.
 
-**Phase 4 (LangGraph Integration):** Wave 2 complete. Document comparison LangGraph workflow and memory summarization service in place. Ready for API endpoint (Wave 3, plan 04-05).
+**Phase 4 (LangGraph Integration):** COMPLETE. All 5 plans executed successfully. Document comparison via LangGraph workflow with GraphRAG multi-hop reasoning, memory summarization, and API endpoint.
+
+**Phase 5 (Differentiation Features):** Ready to start. On-demand summarization, text simplification, confidence scores, and shared knowledge integration.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 4 Wave 2 execution (04-03, 04-04)
-Stopped at: Completed Wave 2, ready for Wave 3 (04-05)
+Last session: 2026-02-04 - Phase 4 Wave 3 execution (04-05) - Phase 4 COMPLETE
+Stopped at: Completed 04-05-PLAN.md, ready for Phase 5
 Resume file: None

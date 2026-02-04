@@ -95,11 +95,11 @@ Plans:
 **Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 04-01-PLAN.md — PostgreSQL checkpointing + LangGraph infrastructure (Wave 1)
-- [ ] 04-02-PLAN.md — GraphRAG multi-hop retrieval service (Wave 1)
-- [ ] 04-03-PLAN.md — Document comparison LangGraph workflow (Wave 2)
-- [ ] 04-04-PLAN.md — Memory summarization service (Wave 2)
-- [ ] 04-05-PLAN.md — Document comparison API endpoint with citations (Wave 3)
+- [x] 04-01-PLAN.md — PostgreSQL checkpointing + LangGraph infrastructure (Wave 1)
+- [x] 04-02-PLAN.md — GraphRAG multi-hop retrieval service (Wave 1)
+- [x] 04-03-PLAN.md — Document comparison LangGraph workflow (Wave 2)
+- [x] 04-04-PLAN.md — Memory summarization service (Wave 2)
+- [x] 04-05-PLAN.md — Document comparison API endpoint with citations (Wave 3)
 
 ### Phase 5: Differentiation Features
 **Goal**: Deliver competitive advantages through shared knowledge, advanced summaries, and trust-building features
@@ -147,6 +147,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation & Core RAG | 5/5 | Complete | 2026-02-04 |
 | 2. Multi-User Core & Memory Integration | 7/7 | Complete | 2026-02-04 |
 | 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
-| 4. LangGraph & Advanced Workflows | 0/5 | Planned | - |
+| 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
 | 5. Differentiation Features | 0/4 | Planned | - |
 | 6. Production Hardening | 0/0 | Not started | - |
