@@ -5,6 +5,7 @@ This module provides the complete document processing pipeline:
 - DOCX extraction using python-docx
 - Semantic chunking with RecursiveCharacterTextSplitter
 - Async pipeline for background processing
+- Task status tracking for progress visibility
 
 CRITICAL: Uses semantic chunking to prevent Pitfall #2 (poor chunking strategy).
 """
@@ -19,6 +20,7 @@ from docx import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
+from app.utils.task_tracker import TaskStatus, task_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -112,15 +114,15 @@ async def process_document_pipeline(
     user_id: str,
     filename: str,
 ) -> None:
-    """Complete document processing pipeline.
+    """Complete document processing pipeline with status tracking.
 
-    Steps:
-    1. Extract text (PDF/DOCX based on file extension)
-    2. Chunk text (semantic chunking)
-    3. Generate embeddings for all chunks
-    4. Store in Neo4j (metadata, chunks with relationships)
-    5. Store in Qdrant (vectors with user_id for multi-tenant filtering)
-    6. Clean up temp file
+    Steps (with status updates):
+    1. EXTRACTING: Extract text (PDF/DOCX based on file extension)
+    2. CHUNKING: Chunk text (semantic chunking)
+    3. EMBEDDING: Generate embeddings for all chunks
+    4. INDEXING: Store in Neo4j and Qdrant
+    5. SUMMARIZING: Generate document summary (placeholder)
+    6. COMPLETED: Processing finished
 
     Runs in background task to avoid blocking API (Pitfall #7).
 
@@ -140,7 +142,10 @@ async def process_document_pipeline(
     try:
         logger.info(f"Processing document: {filename} (id: {document_id})")
 
-        # Step 1: Detect file type and extract text
+        # Step 1: Extract text
+        task_tracker.update(
+            document_id, TaskStatus.EXTRACTING, f"Extracting text from {filename}"
+        )
         _, ext = os.path.splitext(filename.lower())
         if ext == ".pdf":
             text = extract_text_from_pdf(file_path)
@@ -151,20 +156,29 @@ async def process_document_pipeline(
 
         logger.info(f"Extracted {len(text)} characters from {filename}")
 
-        # Step 2: Chunk text using semantic splitter
+        # Step 2: Chunk text
+        task_tracker.update(
+            document_id, TaskStatus.CHUNKING, "Splitting into semantic chunks"
+        )
         chunks = chunk_text(text)
         logger.info(f"Created {len(chunks)} chunks from {filename}")
 
         if not chunks:
             logger.warning(f"No chunks created from {filename} - empty document?")
+            task_tracker.fail(document_id, "Document appears to be empty")
             return
 
-        # Step 3: Generate embeddings for all chunks
+        # Step 3: Generate embeddings
+        task_tracker.update(
+            document_id,
+            TaskStatus.EMBEDDING,
+            f"Generating embeddings for {len(chunks)} chunks",
+        )
         chunk_texts = [chunk["text"] for chunk in chunks]
         embeddings = await generate_embeddings(chunk_texts)
         logger.info(f"Generated {len(embeddings)} embeddings for {filename}")
 
-        # Step 4: Prepare chunk data with shared UUIDs for Neo4j/Qdrant linkage
+        # Prepare chunk data with shared UUIDs for Neo4j/Qdrant linkage
         # CRITICAL: Same ID used in both stores for cross-referencing
         chunk_data = []
         for chunk, embedding in zip(chunks, embeddings):
@@ -180,7 +194,8 @@ async def process_document_pipeline(
                 }
             )
 
-        # Step 5: Store in Neo4j (metadata and chunk nodes)
+        # Step 4: Store in databases
+        task_tracker.update(document_id, TaskStatus.INDEXING, "Storing in database")
         store_document_in_neo4j(
             document_id=document_id,
             user_id=user_id,
@@ -189,15 +204,23 @@ async def process_document_pipeline(
         )
         logger.info(f"Stored document and chunks in Neo4j for {filename}")
 
-        # Step 6: Store in Qdrant (vectors with user_id for multi-tenant filtering)
         store_chunks_in_qdrant(chunk_data)
         logger.info(f"Stored vectors in Qdrant for {filename}")
 
+        # Step 5: Generate summary (placeholder - will be implemented in Plan 04)
+        task_tracker.update(
+            document_id, TaskStatus.SUMMARIZING, "Generating document summary"
+        )
+        # TODO: Add actual summarization in Plan 03-04
+        logger.info(f"Summary generation placeholder for {filename}")
+
+        # Step 6: Complete
+        task_tracker.complete(document_id, "Document processed successfully")
         logger.info(f"Successfully processed document: {filename} (id: {document_id})")
 
     except Exception as e:
         logger.error(f"Error processing document {filename}: {e}")
-        # TODO: Store error status in database for user notification
+        task_tracker.fail(document_id, str(e))
         raise
 
     finally:
