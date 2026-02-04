@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 2 Complete - Ready for Phase 3: UX & Streaming
+**Current focus:** Phase 3: UX & Streaming - Wave 1 Complete
 
 ## Current Position
 
-Phase: 2 of 6 (Multi-User Core & Memory Integration) - COMPLETE
-Plan: 7 of 7 complete
-Status: Phase 2 Complete
-Last activity: 2026-02-04 - Completed 02-07-PLAN.md (Wave 4 - Security Tests)
+Phase: 3 of 6 (UX & Streaming)
+Plan: 2 of 4 complete
+Status: In Progress - Wave 1 Complete
+Last activity: 2026-02-04 - Completed 03-01-PLAN.md and 03-02-PLAN.md (Wave 1)
 
-Progress: [██████████] 100% (Phase 2)
-Overall: [████░░░░░░] 40% (12/30 plans across all phases)
+Progress: [█████░░░░░] 50% (Phase 3)
+Overall: [█████░░░░░] 47% (14/30 plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 14
 - Average duration: 5.0 min
-- Total execution time: 1.0 hours
+- Total execution time: 1.2 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Overall: [████░░░░░░] 40% (12/30 plans across all phases)
 |-------|-------|-------|----------|
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
 | 02-multi-user-memory | 7 | 43 min | 6.1 min |
+| 03-ux-streaming | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (3 min), 02-04 (4 min), 02-05 (5 min), 02-06 (5 min), 02-07 (19 min)
-- Trend: 02-07 longer due to comprehensive test suite (561 lines)
+- Last 5 plans: 02-05 (5 min), 02-06 (5 min), 02-07 (19 min), 03-01 (4 min), 03-02 (5 min)
+- Trend: Wave 1 plans efficient - error handling and task tracking straightforward
 
 *Updated after each plan completion*
 
@@ -89,6 +90,12 @@ Recent decisions affecting current work:
 - **02-07:** Unique UUIDs in test emails to avoid conflicts between test runs
 - **02-07:** ASGITransport for direct app testing without real server
 - **02-07:** Tests designed to run in CI with real environment (not mocked)
+- **03-01:** Status code to error type mapping for consistent error strings
+- **03-01:** Skip 'body' prefix in validation error field paths for cleaner messages
+- **03-01:** Generic exception handler logs full details but returns sanitized message
+- **03-02:** In-memory task tracking (not Redis) for simplicity - upgrade path available
+- **03-02:** 1 hour TTL for task cleanup to prevent memory exhaustion
+- **03-02:** Progress percentages: EXTRACTING=10%, CHUNKING=25%, EMBEDDING=40%, INDEXING=70%, SUMMARIZING=85%, COMPLETED=100%
 
 ### Pending Todos
 
@@ -98,10 +105,12 @@ None yet.
 
 **Phase 2 (Multi-User Core):** COMPLETE. All 7 plans executed successfully. Multi-tenant isolation verified through comprehensive security tests.
 
+**Phase 3 (UX & Streaming):** Wave 1 complete. Error handling and task tracking in place. Ready for Wave 2: SSE streaming (03-03) and document management (03-04).
+
 **Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 2 Wave 4 execution (02-07)
-Stopped at: Completed Phase 2, ready for Phase 3: UX & Streaming
+Last session: 2026-02-04 - Phase 3 Wave 1 execution (03-01, 03-02)
+Stopped at: Completed Wave 1, ready for Wave 2 (03-03, 03-04)
 Resume file: None
