@@ -18,19 +18,26 @@ from sse_starlette.sse import EventSourceResponse
 from app.core.security import get_current_user_optional
 from app.models.schemas import (
     Citation,
+    ConfidenceScore,
+    HighlightedCitation,
     QueryRequest,
     QueryResponse,
+    QueryResponseWithCitations,
     SimplifyRequest,
     SimplifyResponse,
     SummaryResponse,
     UserContext,
 )
+from app.services.confidence_service import generate_answer_with_confidence
 from app.services.generation_service import (
     generate_answer,
     generate_answer_no_context,
     stream_answer,
 )
-from app.services.retrieval_service import retrieve_relevant_context
+from app.services.retrieval_service import (
+    extract_highlighted_citations,
+    retrieve_relevant_context,
+)
 from app.services.simplification_service import (
     SIMPLIFICATION_LEVELS,
     simplify_document_section,
@@ -302,3 +309,73 @@ async def simplify_content(
         )
 
     return SimplifyResponse(**result)
+
+
+@router.post("/enhanced", response_model=QueryResponseWithCitations)
+async def query_documents_enhanced(
+    request: QueryRequest,
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Enhanced query with confidence scores and highlighted citations.
+
+    Phase 5 enhanced query endpoint providing:
+    - Confidence score indicating model certainty (Success Criteria #6)
+    - Highlighted citations with exact text passages (Success Criteria #4)
+
+    Supports both authenticated and anonymous users.
+    The original /query endpoint remains for backward compatibility.
+
+    Args:
+        request: QueryRequest with query string and max_results.
+        current_user: UserContext (authenticated or anonymous).
+
+    Returns:
+        QueryResponseWithCitations with answer, confidence, and highlighted citations.
+    """
+    user_id = current_user.id
+
+    # Step 1: Retrieve relevant context (filtered by user_id)
+    context = await retrieve_relevant_context(
+        query=request.query,
+        user_id=user_id,
+        max_results=request.max_results,
+    )
+
+    # Step 2: Handle no context case
+    if not context["chunks"]:
+        return QueryResponseWithCitations(
+            answer="I don't know. I couldn't find any relevant information in your documents.",
+            confidence=ConfidenceScore(
+                score=0.95,
+                level="high",
+                interpretation="The model is confident there is no relevant information.",
+            ),
+            citations=[],
+        )
+
+    # Step 3: Generate answer with confidence using logprobs
+    result = await generate_answer_with_confidence(
+        query=request.query,
+        context=context["chunks"],
+    )
+
+    # Step 4: Extract highlighted citations with exact passages
+    citations = await extract_highlighted_citations(
+        answer=result["answer"],
+        context_chunks=context["chunks"],
+        query=request.query,
+    )
+
+    # Build confidence score from result
+    confidence_data = result["confidence"]
+    confidence = ConfidenceScore(
+        score=confidence_data["score"],
+        level=confidence_data["level"],
+        interpretation=confidence_data["interpretation"],
+    )
+
+    return QueryResponseWithCitations(
+        answer=result["answer"],
+        confidence=confidence,
+        citations=citations,
+    )
