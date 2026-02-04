@@ -34,10 +34,11 @@ async def lifespan(app: FastAPI):
     init_qdrant_collection()
     print("Qdrant collection initialized")
 
-    # TODO: Validate embedding dimensions (implemented in Plan 03)
-    # from app.services.embedding_service import validate_embedding_dimensions
-    # validate_embedding_dimensions()
-    # print("Embedding dimensions validated")
+    # Validate embedding dimensions at startup
+    from app.services.embedding_service import validate_embedding_dimensions
+
+    validate_embedding_dimensions()
+    print("Embedding dimensions validated")
 
     print("Startup complete")
 
