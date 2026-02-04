@@ -120,8 +120,8 @@ async def process_document_pipeline(
     1. EXTRACTING: Extract text (PDF/DOCX based on file extension)
     2. CHUNKING: Chunk text (semantic chunking)
     3. EMBEDDING: Generate embeddings for all chunks
-    4. INDEXING: Store in Neo4j and Qdrant
-    5. SUMMARIZING: Generate document summary (placeholder)
+    4. SUMMARIZING: Generate document summary using LangChain
+    5. INDEXING: Store in Neo4j and Qdrant (with summary)
     6. COMPLETED: Processing finished
 
     Runs in background task to avoid blocking API (Pitfall #7).
@@ -138,6 +138,7 @@ async def process_document_pipeline(
         store_chunks_in_qdrant,
         store_document_in_neo4j,
     )
+    from app.services.summarization_service import generate_document_summary
 
     try:
         logger.info(f"Processing document: {filename} (id: {document_id})")
@@ -194,25 +195,26 @@ async def process_document_pipeline(
                 }
             )
 
-        # Step 4: Store in databases
+        # Step 4: Generate summary BEFORE indexing (so we can store with document)
+        task_tracker.update(
+            document_id, TaskStatus.SUMMARIZING, "Generating document summary"
+        )
+        summary = await generate_document_summary(chunk_texts)
+        logger.info(f"Generated summary for {filename}: {len(summary)} chars")
+
+        # Step 5: Store in databases (with summary)
         task_tracker.update(document_id, TaskStatus.INDEXING, "Storing in database")
         store_document_in_neo4j(
             document_id=document_id,
             user_id=user_id,
             filename=filename,
             chunks=chunk_data,
+            summary=summary,
         )
         logger.info(f"Stored document and chunks in Neo4j for {filename}")
 
         store_chunks_in_qdrant(chunk_data)
         logger.info(f"Stored vectors in Qdrant for {filename}")
-
-        # Step 5: Generate summary (placeholder - will be implemented in Plan 04)
-        task_tracker.update(
-            document_id, TaskStatus.SUMMARIZING, "Generating document summary"
-        )
-        # TODO: Add actual summarization in Plan 03-04
-        logger.info(f"Summary generation placeholder for {filename}")
 
         # Step 6: Complete
         task_tracker.complete(document_id, "Document processed successfully")
