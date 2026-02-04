@@ -52,12 +52,16 @@ Plans:
   5. Temporary anonymous data automatically expires after configured period and is cleaned up from both Neo4j and Qdrant
   6. Admin users can add facts to shared company-wide memory that all authenticated users can query
   7. System remembers conversation history within sessions and user preferences across sessions
-**Plans**: TBD
+**Plans**: 7 plans in 4 waves
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md — Redis + refresh token rotation with single-use enforcement (Wave 1)
+- [ ] 02-02-PLAN.md — Anonymous session management with HTTP-only cookies (Wave 1)
+- [ ] 02-03-PLAN.md — RBAC with user/admin roles (Wave 2)
+- [ ] 02-04-PLAN.md — Memory service and API endpoints (Wave 2)
+- [ ] 02-05-PLAN.md — Anonymous-to-authenticated data migration (Wave 3)
+- [ ] 02-06-PLAN.md — TTL cleanup scheduler + shared memory management (Wave 3)
+- [ ] 02-07-PLAN.md — Multi-tenant isolation security tests (Wave 4)
 
 ### Phase 3: UX & Streaming
 **Goal**: Polish user experience with streaming responses, document management UI, and robust error handling
@@ -134,7 +138,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Core RAG | 5/5 | ✓ Complete | 2026-02-04 |
-| 2. Multi-User Core & Memory Integration | 0/0 | Not started | - |
+| 2. Multi-User Core & Memory Integration | 0/7 | Planned | - |
 | 3. UX & Streaming | 0/0 | Not started | - |
 | 4. LangGraph & Advanced Workflows | 0/0 | Not started | - |
 | 5. Differentiation Features | 0/0 | Not started | - |
