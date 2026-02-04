@@ -48,6 +48,24 @@ class UserResponse(BaseModel):
     email: str
 
 
+class UserContext(BaseModel):
+    """User context for request - works for both authenticated and anonymous.
+
+    This provides a unified interface for all API endpoints:
+    - Authenticated users have email and role
+    - Anonymous users have is_anonymous=True and session_created timestamp
+
+    All database queries filter by 'id' regardless of auth state.
+    """
+
+    id: str  # User UUID or anonymous session ID
+    email: Optional[str] = None
+    is_anonymous: bool = False
+    role: str = "user"  # "user", "admin", or "anonymous"
+    session_created: Optional[str] = None  # ISO timestamp for anonymous sessions
+    jti: Optional[str] = None  # JWT ID for logout operations
+
+
 class MessageResponse(BaseModel):
     """Schema for simple message responses."""
 
