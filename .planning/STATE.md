@@ -5,32 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 1 - Foundation & Core RAG (COMPLETE)
+**Current focus:** Phase 2 - Multi-User Core & Memory Integration (Wave 1 complete)
 
 ## Current Position
 
-Phase: 1 of 6 (Foundation & Core RAG)
-Plan: 5 of 5 complete
-Status: Phase complete
-Last activity: 2026-02-04 - Completed 01-05-PLAN.md (Query Endpoint with Citations)
+Phase: 2 of 6 (Multi-User Core & Memory Integration)
+Plan: 2 of 7 complete
+Status: In progress
+Last activity: 2026-02-04 - Completed 02-01-PLAN.md and 02-02-PLAN.md (Wave 1)
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 3.6 min
-- Total execution time: 0.30 hours
+- Total plans completed: 7
+- Average duration: 3.7 min
+- Total execution time: 0.43 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-core-rag | 5 | 18 min | 3.6 min |
+| 02-multi-user-memory | 2 | 8 min | 4.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-03 (4 min), 01-02 (3 min), 01-04 (4 min), 01-05 (4 min)
+- Last 5 plans: 01-04 (4 min), 01-05 (4 min), 02-01 (4 min), 02-02 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -64,6 +65,14 @@ Recent decisions affecting current work:
 - **01-05:** Neo4j enrichment to add filename metadata to search results
 - **01-05:** Separate 'memory' collection from 'documents' for Mem0 (Pitfall #1)
 - **01-05:** Lazy Mem0 initialization defers connection until first use
+- **02-01:** redis.asyncio over deprecated aioredis (merged into redis-py 5.0+)
+- **02-01:** SHA-256 hashing for refresh tokens (fast enough for tokens)
+- **02-01:** TTL on blocklist entries matching token lifetime (prevents unbounded growth)
+- **02-01:** JTI in both access and refresh tokens for unified revocation
+- **02-02:** HTTP-only cookies over URL parameters (prevents XSS, session hijacking)
+- **02-02:** anon_ prefix distinguishes anonymous from authenticated user IDs
+- **02-02:** UserContext schema provides unified interface for all endpoints
+- **02-02:** COOKIE_SECURE=False for local dev, True for production
 
 ### Pending Todos
 
@@ -71,12 +80,12 @@ None yet.
 
 ### Blockers/Concerns
 
-**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Need deeper research during planning for security validation patterns, query-time filtering enforcement, and cross-tenant access testing strategies.
+**Phase 2 (Multi-User Core):** Research flagged multi-tenant isolation with Mem0 dual stores as complex. Need deeper research during planning for security validation patterns, query-time filtering enforcement, and cross-tenant access testing strategies. Wave 1 (02-01, 02-02) complete, remaining plans need this context.
 
 **Phase 4 (LangGraph Integration):** Research flagged LangGraph workflow patterns for document comparison using GraphRAG as complex. Need deeper research during planning for checkpoint configuration, state management with dual stores, and workflow design patterns.
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Plan 01-05 execution
-Stopped at: Completed Phase 1 (01-05-PLAN.md), ready for Phase 2
+Last session: 2026-02-04 - Phase 2 Wave 1 execution (02-01 and 02-02)
+Stopped at: Completed Phase 2 Wave 1, ready for Wave 2 (02-03, 02-04)
 Resume file: None
