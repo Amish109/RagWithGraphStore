@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: rag-with-graph-store
+Version: 0.1.0
+Summary: RAG system with memory management using Neo4j and Qdrant
+Author: RAGWithGraphStore Team
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.126.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: pydantic-settings>=2.0.0
+Requires-Dist: uvicorn[standard]
+Requires-Dist: mem0ai
+Requires-Dist: neo4j>=6.1.0
+Requires-Dist: qdrant-client>=1.16.2
+Requires-Dist: langchain>=1.0
+Requires-Dist: langchain-openai>=1.1.7
+Requires-Dist: pymupdf4llm
+Requires-Dist: python-docx
+Requires-Dist: pyjwt
+Requires-Dist: pwdlib[argon2]
+Requires-Dist: python-dotenv
+Requires-Dist: openai
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: httpx; extra == "dev"

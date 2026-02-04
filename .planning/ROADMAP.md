@@ -74,11 +74,13 @@ Plans:
   4. User can delete documents and the system cascades deletion to both Neo4j and Qdrant stores
   5. System automatically generates document summaries on upload for quick reference
   6. Errors display helpful messages to users rather than crashing or showing stack traces
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Global exception handlers and ErrorResponse schema (Wave 1)
+- [ ] 03-02-PLAN.md — Task tracking for document processing progress (Wave 1)
+- [ ] 03-03-PLAN.md — SSE streaming for query responses (Wave 2)
+- [ ] 03-04-PLAN.md — Document management: delete, summaries, enhanced listing (Wave 2)
 
 ### Phase 4: LangGraph & Advanced Workflows
 **Goal**: Enable complex multi-step reasoning for document comparison and advanced query workflows
@@ -90,11 +92,14 @@ Plans:
   3. System automatically summarizes conversation memory when context grows too large to prevent overflow
   4. LangGraph workflow state persists across requests allowing multi-turn complex queries
   5. Document comparison responses cite specific sections from multiple source documents
-**Plans**: TBD
+**Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — PostgreSQL checkpointing + LangGraph infrastructure (Wave 1)
+- [ ] 04-02-PLAN.md — GraphRAG multi-hop retrieval service (Wave 1)
+- [ ] 04-03-PLAN.md — Document comparison LangGraph workflow (Wave 2)
+- [ ] 04-04-PLAN.md — Memory summarization service (Wave 2)
+- [ ] 04-05-PLAN.md — Document comparison API endpoint with citations (Wave 3)
 
 ### Phase 5: Differentiation Features
 **Goal**: Deliver competitive advantages through shared knowledge, advanced summaries, and trust-building features
@@ -107,11 +112,13 @@ Plans:
   4. Responses include highlighted citations showing exact text passages from source documents
   5. Admin can add facts to shared memory and all authenticated users can query against this shared knowledge base
   6. System provides confidence scores on responses so users know when to verify answers
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — On-demand document summarization service (Wave 1)
+- [ ] 05-02-PLAN.md — Text simplification service with reading level control (Wave 1)
+- [ ] 05-03-PLAN.md — Confidence scores and highlighted citations (Wave 2)
+- [ ] 05-04-PLAN.md — Memory API and shared knowledge integration (Wave 3)
 
 ### Phase 6: Production Hardening
 **Goal**: Production-ready system with observability, performance optimization, and operational excellence
@@ -137,9 +144,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Core RAG | 5/5 | ✓ Complete | 2026-02-04 |
+| 1. Foundation & Core RAG | 5/5 | Complete | 2026-02-04 |
 | 2. Multi-User Core & Memory Integration | 0/7 | Planned | - |
-| 3. UX & Streaming | 0/0 | Not started | - |
-| 4. LangGraph & Advanced Workflows | 0/0 | Not started | - |
-| 5. Differentiation Features | 0/0 | Not started | - |
+| 3. UX & Streaming | 0/4 | Planned | - |
+| 4. LangGraph & Advanced Workflows | 0/5 | Planned | - |
+| 5. Differentiation Features | 0/4 | Planned | - |
 | 6. Production Hardening | 0/0 | Not started | - |
