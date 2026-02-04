@@ -19,11 +19,12 @@ def store_document_in_neo4j(
     user_id: str,
     filename: str,
     chunks: List[Dict],
+    summary: str = "",
 ) -> None:
     """Store document metadata and chunks in Neo4j with relationships.
 
     Creates:
-    - Document node with metadata
+    - Document node with metadata (including summary)
     - OWNS relationship from User to Document
     - Chunk nodes for each text chunk
     - CONTAINS relationships from Document to Chunks
@@ -33,6 +34,7 @@ def store_document_in_neo4j(
         user_id: ID of the user who uploaded the document.
         filename: Original filename.
         chunks: List of chunk dicts with id, text, position keys.
+        summary: Auto-generated document summary (optional).
     """
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
         # Create Document node with OWNS relationship to User
@@ -44,7 +46,8 @@ def store_document_in_neo4j(
                 filename: $filename,
                 user_id: $user_id,
                 upload_date: datetime(),
-                chunk_count: $chunk_count
+                chunk_count: $chunk_count,
+                summary: $summary
             })
             CREATE (u)-[:OWNS]->(d)
             """,
@@ -52,6 +55,7 @@ def store_document_in_neo4j(
             user_id=user_id,
             filename=filename,
             chunk_count=len(chunks),
+            summary=summary,
         )
 
         # Create Chunk nodes with CONTAINS relationship to Document

@@ -91,6 +91,7 @@ class DocumentInfo(BaseModel):
     filename: str
     upload_date: Optional[str] = None
     chunk_count: Optional[int] = None
+    summary: Optional[str] = None  # Auto-generated summary for quick reference
 
 
 # Query schemas
