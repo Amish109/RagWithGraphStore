@@ -167,6 +167,14 @@ Plans:
   4. Anonymous user can use app without logging in and see session ID in sidebar
   5. Current user info displays in sidebar showing name, role (user/admin), and session type (authenticated/anonymous)
   6. Debug panel shows JWT token expiry time and user ID for troubleshooting
+**Plans**: 5 plans in 4 waves
+
+Plans:
+- [ ] 07-01-PLAN.md — Project scaffolding, API client, session state utilities (Wave 1)
+- [ ] 07-02-PLAN.md — Login page with callback-based auth flow (Wave 2)
+- [ ] 07-03-PLAN.md — Registration page with callback-based auth flow (Wave 2)
+- [ ] 07-04-PLAN.md — App entry, dynamic navigation, sidebar user info, logout (Wave 3)
+- [ ] 07-05-PLAN.md — Debug panel with token info, human verification (Wave 4)
 
 ### Phase 8: Document Management
 **Goal**: Enable full document lifecycle management with upload, viewing, and deletion capabilities
@@ -236,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
 | 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
 | 6. Production Hardening | 0/5 | Not started | - |
-| 7. Foundation & Authentication | 0/0 | Not started | - |
+| 7. Foundation & Authentication | 0/5 | Planned | - |
 | 8. Document Management | 0/0 | Not started | - |
 | 9. RAG Query & Streaming | 0/0 | Not started | - |
 | 10. Document Comparison | 0/0 | Not started | - |
