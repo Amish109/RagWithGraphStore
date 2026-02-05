@@ -1,73 +1,119 @@
 """Authentication callback handlers for Streamlit pages.
 
-Provides callbacks for login/register buttons using Pattern 3 (callback-based)
-to prevent infinite rerun loops. Callbacks read from session_state keys set
-by form inputs and update session_state with results.
+Provides callback functions for login and registration forms.
+These are designed to work with Streamlit's button on_click pattern
+to avoid infinite rerun loops (Pitfall #2 from research).
 
-Critical patterns:
-- Read form values from session_state keys (set by text_input key= param)
-- Update session_state with auth result
-- NEVER call st.rerun() - Streamlit auto-reruns after callback
+Key patterns:
+- Read inputs from session_state keys (set by st.text_input)
+- Call API client functions (sync wrappers around async)
+- Update session state on success/failure
+- NEVER call st.rerun() - let Streamlit handle reruns naturally
 """
 
 import streamlit as st
 
-from utils.api_client import login
-from utils.session import decode_token_claims, set_auth_state
+from utils.api_client import login, register
+from utils.session import set_auth_state
 
 
 def handle_login() -> None:
-    """Login callback for button on_click.
+    """Callback handler for login button.
 
-    Reads credentials from session_state keys set by text_input widgets,
-    calls the login API, and updates session state with result.
+    Reads email/password from session_state keys set by text inputs.
+    Calls login API and updates auth state on success.
+    Sets error message on failure for display after rerun.
 
-    Session state keys read:
-        - login_email: Email from text_input
-        - login_password: Password from text_input
+    Session state inputs:
+        - login_email: User's email address
+        - login_password: User's password
 
-    Session state keys set on success:
+    Session state outputs (on success):
         - is_authenticated: True
         - access_token: JWT access token
         - refresh_token: JWT refresh token
         - user_info: Decoded token claims
-        - session_type: "authenticated"
 
-    Session state keys set on failure:
-        - login_error: Error message string
-
-    Note: Does NOT call st.rerun() - Streamlit auto-reruns after callback.
+    Session state outputs (on failure):
+        - login_error: Error message to display
     """
-    # Read credentials from session_state (set by text_input key=)
-    email = st.session_state.get("login_email", "").strip()
+    email = st.session_state.get("login_email", "")
     password = st.session_state.get("login_password", "")
 
-    # Validate inputs
-    if not email:
-        st.session_state.login_error = "Email is required"
+    # Basic client-side validation
+    if not email or not password:
+        st.session_state.login_error = "Email and password are required"
         return
 
-    if not password:
-        st.session_state.login_error = "Password is required"
-        return
-
-    # Call login API (synchronous wrapper around async)
+    # Call API (sync wrapper handles asyncio.run internally)
     result = login(email, password)
 
     if result:
-        # Login succeeded - update auth state using existing helper
+        # Success - update auth state with tokens
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
 
         if access_token and refresh_token:
-            # Use set_auth_state from session.py which handles all state updates
             set_auth_state(access_token, refresh_token)
             # Clear any previous error
             if "login_error" in st.session_state:
                 del st.session_state.login_error
         else:
             st.session_state.login_error = "Invalid response from server"
-    # Note: If result is None, api_client.login() already displayed error via st.error()
-    # We set a generic error in session_state for consistent handling
-    elif "login_error" not in st.session_state:
-        st.session_state.login_error = "Login failed. Please check your credentials."
+    # Note: On failure, login() already calls st.error() and returns None
+    # We don't need to set login_error here as the error is already shown
+
+
+def handle_register() -> None:
+    """Callback handler for registration button.
+
+    Reads email/password/confirm from session_state keys set by text inputs.
+    Validates passwords match before calling API.
+    Calls register API and updates auth state on success.
+    Sets error message on failure for display after rerun.
+
+    Session state inputs:
+        - register_email: User's email address
+        - register_password: User's password
+        - register_password_confirm: Password confirmation
+
+    Session state outputs (on success):
+        - is_authenticated: True
+        - access_token: JWT access token
+        - refresh_token: JWT refresh token
+        - user_info: Decoded token claims
+
+    Session state outputs (on failure):
+        - register_error: Error message to display
+    """
+    email = st.session_state.get("register_email", "")
+    password = st.session_state.get("register_password", "")
+    password_confirm = st.session_state.get("register_password_confirm", "")
+
+    # Basic client-side validation
+    if not email or not password:
+        st.session_state.register_error = "Email and password are required"
+        return
+
+    # Validate passwords match (client-side validation)
+    if password != password_confirm:
+        st.session_state.register_error = "Passwords do not match"
+        return
+
+    # Call API (sync wrapper handles asyncio.run internally)
+    result = register(email, password)
+
+    if result:
+        # Success - update auth state with tokens
+        access_token = result.get("access_token")
+        refresh_token = result.get("refresh_token")
+
+        if access_token and refresh_token:
+            set_auth_state(access_token, refresh_token)
+            # Clear any previous error
+            if "register_error" in st.session_state:
+                del st.session_state.register_error
+        else:
+            st.session_state.register_error = "Invalid response from server"
+    # Note: On failure, register() already calls st.error() and returns None
+    # We don't need to set register_error here as the error is already shown
