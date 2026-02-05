@@ -4,6 +4,11 @@
 
 This roadmap delivers a production-ready FastAPI backend for intelligent document Q&A with persistent memory. Starting with foundational infrastructure and core RAG functionality, we build progressively through multi-user isolation and memory management, UX enhancements with streaming responses, advanced document comparison via LangGraph, differentiation features including shared knowledge spaces, and finally production hardening with observability and performance optimization. Each phase delivers verifiable user-facing capabilities while systematically addressing critical security and architecture pitfalls identified in research.
 
+## Milestones
+
+- **v1.0: FastAPI Backend** (Phases 1-6) - Production-ready intelligent document Q&A backend
+- **v1.1: Streamlit Test Frontend** (Phases 7-12) - Comprehensive test UI to exercise all backend features
+
 ## Phases
 
 **Phase Numbering:**
@@ -12,12 +17,23 @@ This roadmap delivers a production-ready FastAPI backend for intelligent documen
 
 Decimal phases appear between their surrounding integers in numeric order.
 
+### Milestone v1.0: FastAPI Backend
+
 - [x] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
 - [x] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
 - [x] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [x] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
 - [x] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
 - [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing
+
+### Milestone v1.1: Streamlit Test Frontend
+
+- [ ] **Phase 7: Foundation & Authentication** - Streamlit setup, API client, session state, auth flows
+- [ ] **Phase 8: Document Management** - Upload, list, delete, summaries, progress tracking
+- [ ] **Phase 9: RAG Query & Streaming** - Query interface, SSE streaming, citations, confidence, chat history
+- [ ] **Phase 10: Document Comparison** - Multi-document comparison interface
+- [ ] **Phase 11: Memory & Admin** - Personal memory, shared knowledge, admin features
+- [ ] **Phase 12: Testing & Debug Tools** - Multi-user testing, migration verification, request inspector
 
 ## Phase Details
 
@@ -140,10 +156,77 @@ Plans:
 - [ ] 06-04-PLAN.md — Load testing infrastructure with Locust (Wave 3)
 - [ ] 06-05-PLAN.md — RAG evaluation framework with RAGAs (Wave 3)
 
+### Phase 7: Foundation & Authentication
+**Goal**: Establish Streamlit application structure with working authentication flows and persistent session state
+**Depends on**: Backend Phase 5 (completed)
+**Requirements**: AUTH-F01, AUTH-F02, AUTH-F03, AUTH-F04, AUTH-F05, AUTH-F06
+**Success Criteria** (what must be TRUE):
+  1. User can login with email/password via form and stay logged in across browser refreshes
+  2. User can register new account and immediately access all features without re-logging
+  3. User can logout via button from any page and see login screen
+  4. Anonymous user can use app without logging in and see session ID in sidebar
+  5. Current user info displays in sidebar showing name, role (user/admin), and session type (authenticated/anonymous)
+  6. Debug panel shows JWT token expiry time and user ID for troubleshooting
+
+### Phase 8: Document Management
+**Goal**: Enable full document lifecycle management with upload, viewing, and deletion capabilities
+**Depends on**: Phase 7
+**Requirements**: DOC-F01, DOC-F02, DOC-F03, DOC-F04, DOC-F05, DOC-F06
+**Success Criteria** (what must be TRUE):
+  1. User can upload PDF files via drag-drop or file picker and see success confirmation
+  2. User can upload DOCX files via drag-drop or file picker with same experience
+  3. User sees progress indicator during document processing showing parse/chunk/embed stages
+  4. User can view list of uploaded documents with name, size, and upload date in table format
+  5. User can delete documents from list with confirmation dialog and see real-time list update
+  6. User can view auto-generated summary for each document by clicking expand button
+
+### Phase 9: RAG Query & Streaming
+**Goal**: Deliver core RAG experience with streaming responses, citations, and conversation management
+**Depends on**: Phase 8
+**Requirements**: QRY-F01, QRY-F02, QRY-F03, QRY-F04, QRY-F05, QRY-F06
+**Success Criteria** (what must be TRUE):
+  1. User can enter natural language questions in text input and submit with button or Enter key
+  2. User sees streaming response with typewriter effect as backend generates answer
+  3. Response includes source citations with document names and shows which docs were referenced
+  4. Response shows confidence score as colored badge (green=high, yellow=medium, red=low)
+  5. User can see chat history showing previous questions and answers in current session
+  6. User can click "Explain Simpler" button to get simplified explanation of last response
+
+### Phase 10: Document Comparison
+**Goal**: Enable multi-document comparison for identifying similarities and differences
+**Depends on**: Phase 9
+**Requirements**: CMP-F01, CMP-F02, CMP-F03
+**Success Criteria** (what must be TRUE):
+  1. User can select 2 or more documents from list using checkboxes and click Compare button
+  2. User sees comparison results showing similarities, differences, and cross-document insights
+  3. Comparison includes citations from multiple source documents showing which doc supports each point
+
+### Phase 11: Memory & Admin
+**Goal**: Enable memory management for personalized experience and admin-only shared knowledge features
+**Depends on**: Phase 10
+**Requirements**: MEM-F01, MEM-F02, MEM-F03, ADM-F01, ADM-F02, ADM-F03
+**Success Criteria** (what must be TRUE):
+  1. User can add facts to personal memory via form and see confirmation
+  2. User can view stored memory entries in table with fact text and timestamp
+  3. Responses show when memory context is used with labeled badge or icon
+  4. Admin-only pages (Shared Knowledge) visible only when user has admin role
+  5. Admin can add facts to shared company-wide knowledge base via dedicated form
+  6. Admin can view all shared memory entries in separate section from personal memory
+
+### Phase 12: Testing & Debug Tools
+**Goal**: Provide comprehensive testing tools for multi-user isolation, migration, and API debugging
+**Depends on**: Phase 11
+**Requirements**: TST-F01, TST-F02, TST-F03, TST-F04
+**Success Criteria** (what must be TRUE):
+  1. User can login as different test users in separate browser tabs to verify data isolation
+  2. User can test anonymous-to-registered migration by using app anonymously, registering, and verifying data persists
+  3. User can view raw API requests and responses in inspector panel for debugging
+  4. User can test raw backend endpoints directly with custom request builder showing method/path/body/headers
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -153,3 +236,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
 | 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
 | 6. Production Hardening | 0/5 | Not started | - |
+| 7. Foundation & Authentication | 0/0 | Not started | - |
+| 8. Document Management | 0/0 | Not started | - |
+| 9. RAG Query & Streaming | 0/0 | Not started | - |
+| 10. Document Comparison | 0/0 | Not started | - |
+| 11. Memory & Admin | 0/0 | Not started | - |
+| 12. Testing & Debug Tools | 0/0 | Not started | - |

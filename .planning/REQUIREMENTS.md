@@ -94,43 +94,51 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-F01 | TBD | Pending |
-| AUTH-F02 | TBD | Pending |
-| AUTH-F03 | TBD | Pending |
-| AUTH-F04 | TBD | Pending |
-| AUTH-F05 | TBD | Pending |
-| AUTH-F06 | TBD | Pending |
-| DOC-F01 | TBD | Pending |
-| DOC-F02 | TBD | Pending |
-| DOC-F03 | TBD | Pending |
-| DOC-F04 | TBD | Pending |
-| DOC-F05 | TBD | Pending |
-| DOC-F06 | TBD | Pending |
-| QRY-F01 | TBD | Pending |
-| QRY-F02 | TBD | Pending |
-| QRY-F03 | TBD | Pending |
-| QRY-F04 | TBD | Pending |
-| QRY-F05 | TBD | Pending |
-| QRY-F06 | TBD | Pending |
-| CMP-F01 | TBD | Pending |
-| CMP-F02 | TBD | Pending |
-| CMP-F03 | TBD | Pending |
-| MEM-F01 | TBD | Pending |
-| MEM-F02 | TBD | Pending |
-| MEM-F03 | TBD | Pending |
-| ADM-F01 | TBD | Pending |
-| ADM-F02 | TBD | Pending |
-| ADM-F03 | TBD | Pending |
-| TST-F01 | TBD | Pending |
-| TST-F02 | TBD | Pending |
-| TST-F03 | TBD | Pending |
-| TST-F04 | TBD | Pending |
+| AUTH-F01 | Phase 7 | Pending |
+| AUTH-F02 | Phase 7 | Pending |
+| AUTH-F03 | Phase 7 | Pending |
+| AUTH-F04 | Phase 7 | Pending |
+| AUTH-F05 | Phase 7 | Pending |
+| AUTH-F06 | Phase 7 | Pending |
+| DOC-F01 | Phase 8 | Pending |
+| DOC-F02 | Phase 8 | Pending |
+| DOC-F03 | Phase 8 | Pending |
+| DOC-F04 | Phase 8 | Pending |
+| DOC-F05 | Phase 8 | Pending |
+| DOC-F06 | Phase 8 | Pending |
+| QRY-F01 | Phase 9 | Pending |
+| QRY-F02 | Phase 9 | Pending |
+| QRY-F03 | Phase 9 | Pending |
+| QRY-F04 | Phase 9 | Pending |
+| QRY-F05 | Phase 9 | Pending |
+| QRY-F06 | Phase 9 | Pending |
+| CMP-F01 | Phase 10 | Pending |
+| CMP-F02 | Phase 10 | Pending |
+| CMP-F03 | Phase 10 | Pending |
+| MEM-F01 | Phase 11 | Pending |
+| MEM-F02 | Phase 11 | Pending |
+| MEM-F03 | Phase 11 | Pending |
+| ADM-F01 | Phase 11 | Pending |
+| ADM-F02 | Phase 11 | Pending |
+| ADM-F03 | Phase 11 | Pending |
+| TST-F01 | Phase 12 | Pending |
+| TST-F02 | Phase 12 | Pending |
+| TST-F03 | Phase 12 | Pending |
+| TST-F04 | Phase 12 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 28 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 28
+- v1.1 requirements: 31 total
+- Mapped to phases: 31 (100%)
+- Unmapped: 0
+
+**Phase Distribution:**
+- Phase 7 (Foundation & Authentication): 6 requirements
+- Phase 8 (Document Management): 6 requirements
+- Phase 9 (RAG Query & Streaming): 6 requirements
+- Phase 10 (Document Comparison): 3 requirements
+- Phase 11 (Memory & Admin): 6 requirements
+- Phase 12 (Testing & Debug Tools): 4 requirements
 
 ---
 *Requirements defined: 2026-02-05*
-*Last updated: 2026-02-05 after milestone v1.1 scoping*
+*Last updated: 2026-02-05 after milestone v1.1 roadmap creation*

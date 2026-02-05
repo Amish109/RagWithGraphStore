@@ -1,28 +1,65 @@
-# Project State
+# Project State: RAGWithGraphStore
+
+**Last Updated:** 2026-02-05
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Milestone v1.1 — Streamlit Test Frontend
+
+**Current milestone:** v1.1 — Streamlit Test Frontend
+
+**Current focus:** Building comprehensive Streamlit UI to test and demonstrate all backend features from v1.0.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements for milestone v1.1
-Last activity: 2026-02-05 — Milestone v1.1 started
+**Phase:** 7 - Foundation & Authentication
+**Plan:** Not started (awaiting phase planning)
+**Status:** Ready to plan
+**Last activity:** 2026-02-05 — Milestone v1.1 roadmap created
 
-Progress: Milestone initialization
-Overall: Backend v1.0 complete (Phases 1-5), Phase 6 deferred
+**Progress:** ████░░░░░░░░░░░░░░░░ Phase 7/12 (0%)
+
+**Overall:** Backend v1.0 complete (Phases 1-5), Phase 6 deferred, Frontend v1.1 ready to start
+
+## Milestone Progress
+
+### v1.0: FastAPI Backend (Phases 1-6)
+
+**Status:** 5/6 phases complete, Phase 6 deferred
+
+| Phase | Plans | Status | Completed |
+|-------|-------|--------|-----------|
+| 1. Foundation & Core RAG | 5/5 | Complete | 2026-02-04 |
+| 2. Multi-User Core & Memory | 7/7 | Complete | 2026-02-04 |
+| 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
+| 4. LangGraph & Workflows | 5/5 | Complete | 2026-02-04 |
+| 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
+| 6. Production Hardening | 0/5 | Deferred | - |
+
+### v1.1: Streamlit Test Frontend (Phases 7-12)
+
+**Status:** 0/6 phases started, 31 requirements ready
+
+| Phase | Requirements | Status | Started |
+|-------|--------------|--------|---------|
+| 7. Foundation & Authentication | 6 | Not started | - |
+| 8. Document Management | 6 | Not started | - |
+| 9. RAG Query & Streaming | 6 | Not started | - |
+| 10. Document Comparison | 3 | Not started | - |
+| 11. Memory & Admin | 6 | Not started | - |
+| 12. Testing & Debug Tools | 4 | Not started | - |
+
+**Requirements Coverage:** 31/31 requirements mapped (100%)
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v1.0 Backend):**
 - Total plans completed: 25
-- Average duration: 4.3 min
 - Total execution time: 1.8 hours
+- Average plan duration: 4.3 min
+- Plans per day: 12.5
 
 **By Phase:**
 
@@ -36,131 +73,184 @@ Overall: Backend v1.0 complete (Phases 1-5), Phase 6 deferred
 
 **Recent Trend:**
 - Last 5 plans: 04-05 (2 min), 05-01 (4 min), 05-02 (4 min), 05-03 (4 min), 05-04 (3 min)
-- Trend: Phase 5 completed efficiently - memory integration leveraged existing Phase 2 infrastructure
+- Trend: Consistent execution velocity, leveraging existing infrastructure
 
-*Updated after each plan completion*
+**Velocity (v1.1 Frontend):**
+- TBD (not started)
 
 ## Accumulated Context
 
-### Decisions
+### Key Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+**Backend Decisions (v1.0):**
 
-- Roadmap created: 6-phase structure following research recommendations (Foundation -> Multi-User -> UX -> LangGraph -> Differentiation -> Production)
-- All 38 v1 requirements mapped to phases with 100% coverage
-- Research identified critical pitfalls for Phase 1: semantic chunking, JWT security, Neo4j schema design, embedding dimension locking
-- Research identified Phase 2 and Phase 4 as needing deeper investigation during planning
-- **01-01:** Singleton database clients (neo4j_driver, qdrant_client) at module level for simplicity
-- **01-01:** COSINE distance for Qdrant per OpenAI embedding recommendations
-- **01-01:** Multi-tenant payload indexes created from start (user_id, document_id)
-- **01-02:** PyJWT over python-jose for JWT encoding (simpler, no extra deps)
-- **01-02:** Argon2 over bcrypt for password hashing (GPU-resistant, OWASP 2024+)
-- **01-02:** OAuth2PasswordRequestForm for login (FastAPI docs compatibility)
-- **01-02:** Stateless logout - server-side blocklist deferred to Phase 2+
-- **01-03:** AsyncOpenAI client for non-blocking embedding operations
-- **01-03:** Temperature=0 for deterministic LLM responses
-- **01-03:** langchain_core.prompts import path (not deprecated langchain.prompts)
-- **01-04:** pymupdf4llm for PDF extraction (Markdown output preserves structure)
-- **01-04:** RecursiveCharacterTextSplitter with semantic separators (prevents poor chunking)
-- **01-04:** Shared UUIDs between Neo4j chunks and Qdrant vectors for cross-referencing
-- **01-04:** Background task processing to avoid blocking API
-- **01-05:** User_id filtering on all Qdrant searches for multi-tenant isolation (Pitfall #6)
-- **01-05:** Neo4j enrichment to add filename metadata to search results
-- **01-05:** Separate 'memory' collection from 'documents' for Mem0 (Pitfall #1)
-- **01-05:** Lazy Mem0 initialization defers connection until first use
-- **02-01:** redis.asyncio over deprecated aioredis (merged into redis-py 5.0+)
-- **02-01:** SHA-256 hashing for refresh tokens (fast enough for tokens)
-- **02-01:** TTL on blocklist entries matching token lifetime (prevents unbounded growth)
-- **02-01:** JTI in both access and refresh tokens for unified revocation
-- **02-02:** HTTP-only cookies over URL parameters (prevents XSS, session hijacking)
-- **02-02:** anon_ prefix distinguishes anonymous from authenticated user IDs
-- **02-02:** UserContext schema provides unified interface for all endpoints
-- **02-02:** COOKIE_SECURE=False for local dev, True for production
-- **02-03:** Role stored in JWT for fast authorization (avoids DB lookup per request)
-- **02-03:** Default role is 'user', admin assigned manually
-- **02-03:** RoleChecker uses get_current_user (requires auth), not optional variant
-- **02-04:** SHARED_MEMORY_USER_ID = '__shared__' sentinel for company memory
-- **02-04:** Anonymous users can use memory API (tied to session ID)
-- **02-04:** search_with_shared includes shared only for authenticated users
-- **02-05:** Migration order: Neo4j first, then Qdrant, then Mem0 (by importance)
-- **02-05:** Qdrant migration uses scroll + set_payload (no bulk update API)
-- **02-05:** Mem0 migration uses copy-delete pattern (no user_id update support)
-- **02-06:** APScheduler for daily TTL cleanup at configurable hour (default 3 AM)
-- **02-06:** ANONYMOUS_DATA_TTL_DAYS = 7 (configurable)
-- **02-06:** Admin API at /admin/memory/shared for shared memory management
-- **02-07:** Unique UUIDs in test emails to avoid conflicts between test runs
-- **02-07:** ASGITransport for direct app testing without real server
-- **02-07:** Tests designed to run in CI with real environment (not mocked)
-- **03-01:** Status code to error type mapping for consistent error strings
-- **03-01:** Skip 'body' prefix in validation error field paths for cleaner messages
-- **03-01:** Generic exception handler logs full details but returns sanitized message
-- **03-02:** In-memory task tracking (not Redis) for simplicity - upgrade path available
-- **03-02:** 1 hour TTL for task cleanup to prevent memory exhaustion
-- **03-02:** Progress percentages: EXTRACTING=10%, CHUNKING=25%, EMBEDDING=40%, INDEXING=70%, SUMMARIZING=85%, COMPLETED=100%
-- **03-03:** sse-starlette over built-in StreamingResponse for W3C SSE compliance
-- **03-03:** X-Accel-Buffering: no header to disable nginx buffering
-- **03-03:** Separate streaming LLM instance with streaming=True per request
-- **03-04:** Cascade delete: Qdrant first, then Neo4j (orphaned vectors harmless)
-- **03-04:** map_reduce summarization for >4 chunks to prevent token overflow
-- **03-04:** Summary generated BEFORE indexing for storage with document
-- **04-01:** psycopg_pool.AsyncConnectionPool for async PostgreSQL management
-- **04-01:** Lazy initialization for PostgreSQL pool (consistent with other clients)
-- **04-01:** Graceful fallback if PostgreSQL unavailable (warning, not crash)
-- **04-01:** MEMORY_MAX_TOKENS=4000, MEMORY_SUMMARIZATION_THRESHOLD=0.75
-- **04-02:** LIMIT 50 on all graph queries to prevent explosion (Pitfall #3)
-- **04-02:** Fallback DOCUMENT_CONTEXT_QUERY when Entity nodes don't exist
-- **04-02:** include_graph_context=False default for backward compatibility
-- **04-02:** MatchAny for document filtering in retrieve_for_documents
-- **04-03:** Thread ID format: {user_id}:doc_compare:{session_id} for cross-user isolation
-- **04-03:** Linear workflow flow: retrieve -> expand_graph -> compare -> generate
-- **04-03:** Module-level workflow caching for efficiency
-- **04-03:** JSON response parsing with text fallback for robust analysis
-- **04-04:** Token estimation: 4 chars = 1 token (standard approximation)
-- **04-04:** Recent 5 interactions always preserved verbatim (Pitfall #4)
-- **04-04:** LLM temperature=0.3 for summaries (slightly creative for quality)
-- **04-04:** Delete-then-add pattern for memory consolidation
-- **04-05:** ComparisonCitation separate from existing Citation (different fields)
-- **04-05:** Require authentication for comparison endpoint (resource-intensive)
-- **04-05:** Memory updated after each comparison interaction
-- **05-01:** Stuff method for <10000 chars, map-reduce for longer documents
-- **05-01:** Temperature=0.3 for summaries (slight creativity while accurate)
-- **05-01:** In-memory cache dict for summaries (Redis deferred to Phase 6)
-- **05-01:** Fixed deprecated langchain.chains.summarize import with ChatPromptTemplate
-- **05-02:** Three reading levels: eli5 (elementary), general (8th grade), professional (college)
-- **05-02:** Two-stage prompting: simplify then verify reading level
-- **05-02:** Temperature=0.4 for explanations (slightly creative for clarity)
-- **05-02:** Optional document_id for context-aware simplification
-- **05-03:** Geometric mean for confidence (stable for sequence comparison)
-- **05-03:** Thresholds: >=0.85 high, >=0.60 medium, <0.60 low
-- **05-03:** Verbatim verification prevents citation hallucination
-- **05-03:** Fallback to 200-char truncation if exact match fails
-- **05-03:** /enhanced endpoint for Phase 5 features, /query unchanged
-- **05-04:** Use search_with_shared for memory retrieval (includes shared company knowledge)
-- **05-04:** Limit memory context to 3 results to avoid context bloat
-- **05-04:** Only extract citations from document chunks (not memory context)
-- **05-04:** Memory context labeled as 'User Memory' or 'Shared Memory' for transparency
+See full decision log in comments above for comprehensive backend decisions (01-01 through 05-04).
+
+Key architectural decisions carried forward to frontend:
+- JWT tokens with access + refresh rotation
+- HTTP-only cookies for session persistence
+- Anonymous sessions with anon_ prefix
+- Multi-tenant isolation via user_id filtering
+- Shared memory using __shared__ sentinel
+- SSE streaming for real-time responses
+- Confidence scores with thresholds: high>=0.85, medium>=0.60, low<0.60
+
+**Frontend Decisions (v1.1):**
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Start phase numbering at 7 | Continue sequence from backend v1.0 (phases 1-6) | 2026-02-05 |
+| 6 phases for frontend milestone | Natural clustering: auth, docs, query, comparison, memory, testing | 2026-02-05 |
+| Streamlit 1.54.0+ for test UI | Rapid prototyping, Python-native, easy backend integration, exposes debugging | 2026-02-05 |
+| httpx for API client | Modern requests alternative, 20% faster, HTTP/2 support, async/sync flexibility | 2026-02-05 |
+| sseclient-py for SSE streaming | Pure-Python SSE client, integrates with httpx, proven pattern for st.write_stream | 2026-02-05 |
+| HTTP-only cookies for tokens | Prevents token loss on browser refresh (session state alone insufficient) | 2026-02-05 |
+| st.navigation for multi-page | Dynamic page building, role-based access control, official 2026 pattern | 2026-02-05 |
+
+### Open Questions
+
+**For Phase 7 Planning:**
+- Token refresh strategy: Proactive (before expiry) vs reactive (on 401)?
+  - Research recommends proactive for production-quality test UI
+  - Decision: Defer to Phase 7 planning
+
+- Anonymous session ID generation: Frontend or backend ownership?
+  - Research recommends backend for security (prevents client manipulation)
+  - Decision: Confirm in Phase 7 planning
+
+**For Phase 8 Planning:**
+- File upload size limits: Streamlit 200MB default vs FastAPI limits?
+  - Need alignment and testing with large files
+  - Decision: Document in Phase 8 plan, test early
+
+**For Phase 11 Planning:**
+- Memory visualization: Show Neo4j graph/Qdrant vectors in UI?
+  - Research recommends Neo4j Browser to avoid complexity
+  - Decision: Use Neo4j Browser, reassess in Phase 11 if valuable
 
 ### Pending Todos
 
-None yet.
+**Immediate (Phase 7):**
+- [ ] Plan Phase 7: Foundation & Authentication
+- [ ] Establish Streamlit project structure (app.py, pages/, utils/)
+- [ ] Implement cookie-based JWT token storage from start (prevents Pitfall #1)
+- [ ] Build centralized API client with httpx in session state
+- [ ] Create login/register/logout flows with state guards (prevents Pitfall #2)
+- [ ] Implement dynamic navigation with st.navigation
+
+**Next (Phase 8):**
+- [ ] File upload with proper multipart encoding (prevents Pitfall #5)
+- [ ] Progress polling for document processing
+- [ ] Document list with user isolation verification
+
+**Later (Phase 9-12):**
+- [ ] SSE streaming with sseclient-py generator wrapper (prevents Pitfall #3)
+- [ ] Multi-user testing workflows
+- [ ] Anonymous-to-authenticated migration testing (prevents Pitfall #4)
+- [ ] Request/response inspector for debugging
 
 ### Blockers/Concerns
 
-**Phase 2 (Multi-User Core):** COMPLETE. All 7 plans executed successfully. Multi-tenant isolation verified through comprehensive security tests.
+**Current:** None. Backend v1.0 complete and ready for frontend integration.
 
-**Phase 3 (UX & Streaming):** COMPLETE. All 4 plans executed successfully. SSE streaming, document management, error handling, and task tracking all in place.
+**Critical Pitfalls to Address:**
 
-**Phase 4 (LangGraph Integration):** COMPLETE. All 5 plans executed successfully. Document comparison via LangGraph workflow with GraphRAG multi-hop reasoning, memory summarization, and API endpoint.
+Research identified 7 critical pitfalls for frontend development:
 
-**Phase 5 (Differentiation Features):** COMPLETE. All 4 plans executed successfully:
-- 05-01: On-demand document summarization with caching
-- 05-02: Text simplification with reading level control
-- 05-03: Confidence scores and highlighted citations
-- 05-04: Memory API and shared knowledge integration
+1. **JWT Token Lost on Refresh** (Phase 7) - Tokens in session state only disappear on browser refresh
+   - Prevention: HTTP-only cookies as primary storage + session state as cache
+
+2. **Infinite Rerun Loop in Auth** (Phase 7) - Direct st.rerun() in button handlers without state guards
+   - Prevention: Use session state flags + button callbacks instead of inline rerun
+
+3. **SSE Streaming Buffered** (Phase 9) - SSE appears all at once instead of streaming
+   - Prevention: sseclient-py library + generator conversion for st.write_stream
+
+4. **Anonymous Session Data Orphaned** (Phase 12) - Anonymous content lost after registration
+   - Prevention: Store session ID in cookie, test migration flow end-to-end
+
+5. **File Upload 422 Error** (Phase 8) - st.file_uploader returns object, not bytes
+   - Prevention: Extract with getvalue(), format as (filename, bytes, mime_type) tuple
+
+6. **Pickle Vulnerability** (Phase 7) - Session state serialization risks
+   - Prevention: Validate JWT claims before session state storage
+
+7. **CORS Issues** (Phase 7) - Frontend/backend on different ports
+   - Prevention: Backend CORS middleware already configured in v1.0
+
+**Phase-Specific Concerns:**
+- Phase 7: Cookie persistence and auth state management are architectural foundation
+- Phase 9: SSE streaming is most complex technical challenge, test early
+- Phase 12: Migration testing requires full auth flow working end-to-end
+
+### Recent Wins
+
+**Backend v1.0:**
+- Delivered 25 plans across 5 phases in 2 days (12.5 plans/day velocity)
+- Clean execution with comprehensive success criteria
+- Multi-tenant isolation verified through security tests
+- SSE streaming, LangGraph workflows, confidence scores all working
+
+**Frontend v1.1 Preparation:**
+- Comprehensive research completed for Streamlit + FastAPI patterns
+- Critical pitfalls identified with prevention strategies documented
+- Phase structure derived from natural requirement clustering (not arbitrary)
+- 100% requirement coverage validated (31/31 requirements mapped)
 
 ## Session Continuity
 
-Last session: 2026-02-04 - Phase 5 Wave 3 execution (05-04)
-Stopped at: Completed 05-04-PLAN.md, Phase 5 complete
-Resume file: None
+### What Just Happened
+
+**Milestone v1.1 initialized:**
+- Created roadmap with 6 phases (7-12) continuing from backend v1.0
+- Mapped all 31 frontend requirements to phases with 100% coverage
+- Derived 2-4 success criteria per phase using goal-backward thinking
+- Updated STATE.md with current position and accumulated context
+- Ready to begin Phase 7 planning
+
+### What's Next
+
+**Execute Phase 7 Planning:**
+1. Run `/gsd:plan-phase 7`
+2. Load Phase 7 context from ROADMAP.md (6 auth requirements)
+3. Load research context from research/SUMMARY.md (Phase 1 patterns)
+4. Decompose requirements into executable plans with waves
+5. Address critical pitfalls #1, #2, #6 (token persistence, rerun loops, pickle)
+6. Create must-haves: HTTP-only cookies, session state architecture, st.navigation
+7. Write phase plan with file structure and implementation waves
+
+### Context for Next Session
+
+**If starting fresh:**
+- Read .planning/STATE.md for current position
+- Current milestone: v1.1 Streamlit Test Frontend
+- Current phase: 7 (Foundation & Authentication)
+- Action: Run `/gsd:plan-phase 7`
+
+**Key context to carry forward:**
+- Backend v1.0 complete (phases 1-6), provides REST API + SSE endpoints at http://localhost:8000
+- Frontend uses Streamlit 1.54.0+ with httpx for API client, sseclient-py for SSE
+- JWT tokens MUST be stored in HTTP-only cookies (not just session state)
+- Phase 7 establishes auth foundation - must be architecturally correct for all subsequent phases
+- Research identified 7 critical pitfalls with prevention strategies
+
+**Files to reference for Phase 7 planning:**
+- .planning/ROADMAP.md - Phase 7 goals and success criteria (6 requirements)
+- .planning/REQUIREMENTS.md - AUTH-F01 through AUTH-F06 detailed requirements
+- .planning/research/SUMMARY.md - Phase 1 patterns (auth foundation, cookie storage, st.navigation)
+
+### Warnings
+
+**DO NOT:**
+- Store JWT tokens only in session state (lost on browser refresh - Pitfall #1)
+- Use streamlit-authenticator library (conflicts with backend JWT auth)
+- Use st.rerun() in button handlers without state guards (infinite loop - Pitfall #2)
+- Skip cookie-based token persistence in Phase 7 (architectural foundation for all phases)
+- Test SSE streaming late (complex, needs early validation in Phase 9)
+
+**DO:**
+- Implement HTTP-only cookies from start in Phase 7
+- Use session state flags + button callbacks for auth flows
+- Create centralized API client in session state with consistent auth headers
+- Build dynamic navigation with st.navigation based on auth state
+- Test with real backend early and often
