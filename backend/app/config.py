@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     CLEANUP_SCHEDULE_HOUR: int = 3  # Run cleanup at 3 AM
 
     # PostgreSQL Configuration (for LangGraph checkpointing)
-    POSTGRES_URI: str = "postgresql://localhost:5432/ragapp"
+    POSTGRES_URI: str = "postgresql://postgres:password@localhost:5432/ragapp"
     POSTGRES_POOL_SIZE: int = 5
 
     # Memory Management Configuration
