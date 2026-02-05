@@ -123,7 +123,7 @@ Plans:
 ### Phase 6: Production Hardening
 **Goal**: Production-ready system with observability, performance optimization, and operational excellence
 **Depends on**: Phase 5
-**Requirements**: AUTH-06 (if not in Phase 2), API-09
+**Requirements**: AUTH-06, API-09 (both completed in Phase 2-01)
 **Success Criteria** (what must be TRUE):
   1. System responds to queries in under 2 seconds under normal load
   2. All API endpoints have logging, metrics, and distributed tracing enabled for debugging

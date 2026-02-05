@@ -2,20 +2,20 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-04)
+See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
-**Current focus:** Phase 5: Differentiation Features - COMPLETE
+**Current focus:** Milestone v1.1 — Streamlit Test Frontend
 
 ## Current Position
 
-Phase: 5 of 6 (Differentiation Features) - Complete
-Plan: 4 of 4 complete
-Status: Complete
-Last activity: 2026-02-04 - Completed 05-04-PLAN.md (Wave 3)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for milestone v1.1
+Last activity: 2026-02-05 — Milestone v1.1 started
 
-Progress: [██████████] 100% (Phase 5)
-Overall: [████████░░] 83% (25/30 plans across all phases)
+Progress: Milestone initialization
+Overall: Backend v1.0 complete (Phases 1-5), Phase 6 deferred
 
 ## Performance Metrics
 
