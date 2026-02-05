@@ -1,112 +1,80 @@
 # Requirements: RAGWithGraphStore
 
-**Defined:** 2026-02-04
+**Defined:** 2026-02-05
 **Core Value:** Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
 
-## v1 Requirements
+## Milestone v1.1 Requirements
 
-Requirements for initial release. Each maps to roadmap phases.
-
-### Document Processing
-
-- [x] **DOC-01**: User can upload PDF documents to their private memory
-- [x] **DOC-02**: User can upload DOCX documents to their private memory
-- [ ] **DOC-03**: User sees progress indicator during document upload/processing
-- [ ] **DOC-04**: System generates document summary on upload
-
-### Query & Response
-
-- [x] **QRY-01**: User can ask natural language questions about their documents
-- [ ] **QRY-02**: User receives streaming responses (SSE) for queries
-- [x] **QRY-03**: Responses include source citations with document references
-- [x] **QRY-04**: System responds "I don't know" when context is insufficient
-- [ ] **QRY-05**: User can compare multiple documents (GraphRAG multi-hop reasoning)
-- [ ] **QRY-06**: User can request document summaries
-- [ ] **QRY-07**: User can request simplified explanations of document content
-
-### Memory & Session
-
-- [ ] **MEM-01**: System maintains conversation history within session
-- [ ] **MEM-02**: Session persists across browser/client refresh
-- [ ] **MEM-03**: System remembers user preferences across sessions (cross-session memory)
-- [ ] **MEM-04**: User can add arbitrary facts to their private memory
-- [ ] **MEM-05**: Admin can add facts to shared (company-wide) memory (users can only read)
-- [ ] **MEM-06**: System summarizes memory to prevent context overflow
-
-### Multi-User & Isolation
-
-- [ ] **USR-01**: Each user has isolated document collection (private space)
-- [ ] **USR-02**: Each user has isolated memory space
-- [ ] **USR-03**: Shared knowledge space accessible to all authenticated users
-- [ ] **USR-04**: User's documents are not visible to other users
+Requirements for Streamlit Test Frontend. Each maps to roadmap phases.
 
 ### Authentication
 
-- [x] **AUTH-01**: User can register with email and password
-- [x] **AUTH-02**: User can login and receive JWT access token
-- [ ] **AUTH-03**: Anonymous user gets temporary session with unique ID
-- [ ] **AUTH-04**: Anonymous user's data migrates to account on registration
-- [ ] **AUTH-05**: Temporary anonymous data expires after configured time period
-- [ ] **AUTH-06**: System supports refresh token rotation for extended sessions
-- [x] **AUTH-07**: User can logout (invalidate session)
-- [ ] **AUTH-08**: Admin role with elevated permissions for shared memory management
+- [ ] **AUTH-F01**: User can login with email and password via form
+- [ ] **AUTH-F02**: User can register new account via form
+- [ ] **AUTH-F03**: User can logout via button
+- [ ] **AUTH-F04**: Anonymous user gets automatic session without logging in
+- [ ] **AUTH-F05**: Current user info displayed in sidebar (name, role, session type)
+- [ ] **AUTH-F06**: Debug panel shows token expiry time and user ID
 
 ### Document Management
 
-- [ ] **MGMT-01**: User can list their uploaded documents
-- [ ] **MGMT-02**: User can delete documents (cascades to both Neo4j and Qdrant)
-- [ ] **MGMT-03**: User can view document metadata (name, size, upload date)
+- [ ] **DOC-F01**: User can upload PDF files via drag-drop or file picker
+- [ ] **DOC-F02**: User can upload DOCX files via drag-drop or file picker
+- [ ] **DOC-F03**: User sees progress indicator during document processing
+- [ ] **DOC-F04**: User can view list of uploaded documents with name, size, date
+- [ ] **DOC-F05**: User can delete documents from list
+- [ ] **DOC-F06**: User can view auto-generated summary for each document
 
-### Configuration & Infrastructure
+### RAG Query & Chat
 
-- [x] **CFG-01**: All settings configurable via environment variables (Pydantic BaseSettings)
-- [x] **CFG-02**: System connects to Neo4j for graph storage
-- [x] **CFG-03**: System connects to Qdrant for vector storage
-- [x] **CFG-04**: System uses OpenAI API for LLM and embeddings
-- [x] **CFG-05**: Mem0 SDK configured with Neo4j + Qdrant dual stores
+- [ ] **QRY-F01**: User can enter natural language questions in text input
+- [ ] **QRY-F02**: User sees streaming response with typewriter effect
+- [ ] **QRY-F03**: Response includes source citations with document names
+- [ ] **QRY-F04**: Response shows confidence score (high/medium/low badge)
+- [ ] **QRY-F05**: User can see chat history (previous Q&A in session)
+- [ ] **QRY-F06**: User can click "Explain Simpler" to get simplified explanation
 
-### API Endpoints
+### Document Comparison
 
-- [x] **API-01**: POST /documents/upload - Upload PDF/DOCX document
-- [ ] **API-02**: GET /documents - List user's documents
-- [ ] **API-03**: DELETE /documents/{id} - Delete a document
-- [x] **API-04**: POST /query - Ask a question (streaming response)
-- [ ] **API-05**: POST /memory - Add fact to private memory (user) or shared memory (admin only)
-- [ ] **API-06**: GET /memory - Retrieve user's memory/facts
-- [x] **API-07**: POST /auth/register - Register new user
-- [x] **API-08**: POST /auth/login - Login and get tokens
-- [ ] **API-09**: POST /auth/refresh - Refresh access token
-- [x] **API-10**: POST /auth/logout - Logout user
+- [ ] **CMP-F01**: User can select 2+ documents to compare
+- [ ] **CMP-F02**: User sees comparison results (similarities, differences, insights)
+- [ ] **CMP-F03**: Comparison includes citations from multiple source documents
 
-## v2 Requirements
+### Memory
 
-Deferred to future release. Tracked but not in current roadmap.
+- [ ] **MEM-F01**: User can add facts to personal memory via form
+- [ ] **MEM-F02**: User can view stored memory entries
+- [ ] **MEM-F03**: Responses show when memory context is used (labeled)
 
-### Advanced Document Processing
+### Admin Features
 
-- **DOC-V2-01**: Table and chart extraction from documents
-- **DOC-V2-02**: Image/diagram analysis within documents
-- **DOC-V2-03**: Document versioning and history
+- [ ] **ADM-F01**: Admin-only pages visible only to admin users
+- [ ] **ADM-F02**: Admin can add facts to shared company-wide knowledge base
+- [ ] **ADM-F03**: Admin can view shared memory entries
 
-### Advanced Query
+### Testing & Debug
 
-- **QRY-V2-01**: Follow-up question suggestions after responses (higher priority)
-- **QRY-V2-02**: Confidence scores on responses
-- **QRY-V2-03**: Highlighted citations showing exact text passages
-- **QRY-V2-04**: Voice input for queries
-- **QRY-V2-05**: Hybrid search (semantic + keyword BM25)
-- **QRY-V2-06**: Re-ranking layer for improved relevance
+- [ ] **TST-F01**: User can login as different users to verify isolation
+- [ ] **TST-F02**: User can test anonymous-to-registered data migration flow
+- [ ] **TST-F03**: User can view raw API requests and responses (inspector)
+- [ ] **TST-F04**: User can test raw backend endpoints directly
 
-### Integrations
+## Future Requirements
 
-- **INT-01**: Slack integration for querying
-- **INT-02**: Teams integration
-- **INT-03**: API webhooks for document events
+Deferred to future milestones. Tracked but not in current roadmap.
 
-### Analytics
+### Enhanced UX
 
-- **ANL-01**: Query analytics dashboard
-- **ANL-02**: Usage metrics per user
+- **UX-F01**: Dark/light theme toggle
+- **UX-F02**: Mobile-responsive layout
+- **UX-F03**: Keyboard shortcuts for common actions
+- **UX-F04**: Export chat history to PDF/Markdown
+
+### Advanced Testing
+
+- **TST-V2-01**: Automated test runner for backend endpoints
+- **TST-V2-02**: Performance metrics dashboard
+- **TST-V2-03**: Load testing simulation
 
 ## Out of Scope
 
@@ -114,13 +82,11 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Frontend/UI | Backend API only - frontend is separate project |
-| OAuth/social login | JWT with email/password sufficient for v1 |
-| Real-time collaboration | Different product category, high complexity |
-| Document editing | Read-only analysis and Q&A |
-| Custom embedding models | OpenAI embeddings sufficient, custom adds complexity |
-| Multi-LLM provider support | Adds complexity for minimal benefit |
-| Every document format | PDF + DOCX covers 80% of use cases |
+| Graph visualization | Use Neo4j Browser directly |
+| Production-grade styling | This is a test UI, not production |
+| OAuth/social login | Backend only supports JWT email/password |
+| Real-time collaboration | Backend doesn't support this |
+| Document editing | Backend is read-only analysis |
 
 ## Traceability
 
@@ -128,59 +94,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DOC-01 | Phase 1 | Complete |
-| DOC-02 | Phase 1 | Complete |
-| DOC-03 | Phase 3 | Pending |
-| DOC-04 | Phase 3 | Pending |
-| QRY-01 | Phase 1 | Complete |
-| QRY-02 | Phase 3 | Pending |
-| QRY-03 | Phase 1 | Complete |
-| QRY-04 | Phase 1 | Complete |
-| QRY-05 | Phase 4 | Pending |
-| QRY-06 | Phase 5 | Pending |
-| QRY-07 | Phase 5 | Pending |
-| MEM-01 | Phase 2 | Pending |
-| MEM-02 | Phase 2 | Pending |
-| MEM-03 | Phase 2 | Pending |
-| MEM-04 | Phase 2 | Pending |
-| MEM-05 | Phase 2 | Pending |
-| MEM-06 | Phase 4 | Pending |
-| USR-01 | Phase 2 | Pending |
-| USR-02 | Phase 2 | Pending |
-| USR-03 | Phase 2 | Pending |
-| USR-04 | Phase 2 | Pending |
-| AUTH-01 | Phase 1 | Complete |
-| AUTH-02 | Phase 1 | Complete |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
-| AUTH-05 | Phase 2 | Pending |
-| AUTH-06 | Phase 2 | Pending |
-| AUTH-07 | Phase 1 | Complete |
-| AUTH-08 | Phase 2 | Pending |
-| MGMT-01 | Phase 3 | Pending |
-| MGMT-02 | Phase 3 | Pending |
-| MGMT-03 | Phase 3 | Pending |
-| CFG-01 | Phase 1 | Complete |
-| CFG-02 | Phase 1 | Complete |
-| CFG-03 | Phase 1 | Complete |
-| CFG-04 | Phase 1 | Complete |
-| CFG-05 | Phase 1 | Complete |
-| API-01 | Phase 1 | Complete |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
-| API-04 | Phase 1 | Complete |
-| API-05 | Phase 5 | Pending |
-| API-06 | Phase 5 | Pending |
-| API-07 | Phase 1 | Complete |
-| API-08 | Phase 1 | Complete |
-| API-09 | Phase 6 | Pending |
-| API-10 | Phase 1 | Complete |
+| AUTH-F01 | TBD | Pending |
+| AUTH-F02 | TBD | Pending |
+| AUTH-F03 | TBD | Pending |
+| AUTH-F04 | TBD | Pending |
+| AUTH-F05 | TBD | Pending |
+| AUTH-F06 | TBD | Pending |
+| DOC-F01 | TBD | Pending |
+| DOC-F02 | TBD | Pending |
+| DOC-F03 | TBD | Pending |
+| DOC-F04 | TBD | Pending |
+| DOC-F05 | TBD | Pending |
+| DOC-F06 | TBD | Pending |
+| QRY-F01 | TBD | Pending |
+| QRY-F02 | TBD | Pending |
+| QRY-F03 | TBD | Pending |
+| QRY-F04 | TBD | Pending |
+| QRY-F05 | TBD | Pending |
+| QRY-F06 | TBD | Pending |
+| CMP-F01 | TBD | Pending |
+| CMP-F02 | TBD | Pending |
+| CMP-F03 | TBD | Pending |
+| MEM-F01 | TBD | Pending |
+| MEM-F02 | TBD | Pending |
+| MEM-F03 | TBD | Pending |
+| ADM-F01 | TBD | Pending |
+| ADM-F02 | TBD | Pending |
+| ADM-F03 | TBD | Pending |
+| TST-F01 | TBD | Pending |
+| TST-F02 | TBD | Pending |
+| TST-F03 | TBD | Pending |
+| TST-F04 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 38 total
-- Mapped to phases: 38
-- Unmapped: 0
+- v1.1 requirements: 28 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 28
 
 ---
-*Requirements defined: 2026-02-04*
-*Last updated: 2026-02-04 after roadmap creation*
+*Requirements defined: 2026-02-05*
+*Last updated: 2026-02-05 after milestone v1.1 scoping*
