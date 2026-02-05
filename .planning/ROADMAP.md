@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation & Core RAG** - Database setup, authentication, document processing, basic retrieval
 - [x] **Phase 2: Multi-User Core & Memory Integration** - Multi-tenant isolation, Mem0 memory management, session persistence
 - [x] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
-- [ ] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
+- [x] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
 - [x] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
 - [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing
 
@@ -131,11 +131,14 @@ Plans:
   4. System has been load tested with 100+ concurrent users and maintains sub-2s response times
   5. Rate limiting and cost protection prevent runaway API costs from malicious or accidental overuse
   6. Comprehensive evaluation framework tracks retrieval accuracy, response quality, and latency metrics
-**Plans**: TBD
+**Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Structured logging with structlog and OpenTelemetry tracing (Wave 1)
+- [ ] 06-02-PLAN.md — Prometheus metrics and rate limiting with slowapi (Wave 1)
+- [ ] 06-03-PLAN.md — Resilience patterns: circuit breakers and retry with backoff (Wave 2)
+- [ ] 06-04-PLAN.md — Load testing infrastructure with Locust (Wave 3)
+- [ ] 06-05-PLAN.md — RAG evaluation framework with RAGAs (Wave 3)
 
 ## Progress
 
@@ -149,4 +152,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
 | 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
 | 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
-| 6. Production Hardening | 0/0 | Not started | - |
+| 6. Production Hardening | 0/5 | Not started | - |
