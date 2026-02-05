@@ -1,6 +1,6 @@
 # Project State: RAGWithGraphStore
 
-**Last Updated:** 2026-02-05T12:43:32Z
+**Last Updated:** 2026-02-05T12:47:30Z
 
 ## Project Reference
 
@@ -15,11 +15,11 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 **Phase:** 7 - Foundation & Authentication
-**Plan:** 1 of 5 complete
+**Plan:** 3 of 5 complete
 **Status:** In progress
-**Last activity:** 2026-02-05 — Completed 07-01-PLAN.md (Project Structure & Utilities)
+**Last activity:** 2026-02-05 — Completed 07-03-PLAN.md (Registration Page)
 
-**Progress:** █░░░░░░░░░░░░░░░░░░░ Phase 7/12 (Plan 1/5)
+**Progress:** ███░░░░░░░░░░░░░░░░░ Phase 7/12 (Plan 3/5)
 
 **Overall:** Backend v1.0 complete (Phases 1-5), Phase 6 deferred, Frontend v1.1 Plan 07-01 complete
 
@@ -44,7 +44,7 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 | Phase | Requirements | Status | Started |
 |-------|--------------|--------|---------|
-| 7. Foundation & Authentication | 6 | Plan 1/5 complete | 2026-02-05 |
+| 7. Foundation & Authentication | 6 | Plan 3/5 complete | 2026-02-05 |
 | 8. Document Management | 6 | Not started | - |
 | 9. RAG Query & Streaming | 6 | Not started | - |
 | 10. Document Comparison | 3 | Not started | - |
@@ -76,9 +76,9 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 - Trend: Consistent execution velocity, leveraging existing infrastructure
 
 **Velocity (v1.1 Frontend):**
-- Plans completed: 1
-- Total execution time: 6 min
-- Average plan duration: 6 min
+- Plans completed: 3
+- Total execution time: 12 min
+- Average plan duration: 4 min
 
 ## Accumulated Context
 
@@ -111,6 +111,10 @@ Key architectural decisions carried forward to frontend:
 | @st.cache_resource for AsyncClient | Prevents connection leaks, ensures singleton instance | 2026-02-05 |
 | asyncio.run() sync wrappers | Streamlit callbacks are sync, need wrappers for async httpx client | 2026-02-05 |
 | JWT decode without verification | Safe because backend validated, just reading claims for UI display | 2026-02-05 |
+| Callback-based forms (Pattern 3) | Prevents infinite rerun loops, on_click vs inline if st.button | 2026-02-05 |
+| Reuse session.py utilities | decode_token_claims, set_auth_state already exist, import rather than duplicate | 2026-02-05 |
+| Error via session_state | Store login_error in session_state, display after callback completes | 2026-02-05 |
+| Client-side password validation | Validate passwords match before API call to reduce unnecessary requests | 2026-02-05 |
 
 ### Open Questions
 
@@ -140,7 +144,9 @@ Key architectural decisions carried forward to frontend:
 - [x] Establish Streamlit project structure (app.py, pages/, utils/) - Plan 07-01
 - [x] Build centralized API client with httpx - Plan 07-01 (api_client.py)
 - [ ] Implement cookie-based JWT token storage from start (prevents Pitfall #1)
-- [ ] Create login/register/logout flows with state guards (prevents Pitfall #2)
+- [x] Create login page with callback pattern (prevents Pitfall #2) - Plan 07-02
+- [x] Create register page with callback pattern - Plan 07-03
+- [ ] Create logout flow with state guards
 - [ ] Implement dynamic navigation with st.navigation
 
 **Next (Phase 8):**
@@ -206,20 +212,18 @@ Research identified 7 critical pitfalls for frontend development:
 
 ### What Just Happened
 
-**Plan 07-01 completed:**
-- Created frontend/ directory structure with utils/ and pages/ subdirectories
-- Implemented httpx AsyncClient wrapper with @st.cache_resource caching
-- Built session state utilities for auth management and JWT token handling
-- Established patterns: cached singleton client, sync wrappers, JWT decode without verification
-- 3 commits: b3d2cb8 (structure), 511cfb6 (api_client), e668abe (session)
+**Plan 07-03 completed:**
+- Created frontend/utils/auth.py with handle_login() and handle_register() callbacks
+- Created frontend/pages/register.py with callback-based registration form
+- Client-side password validation before API call
+- Error handling via session_state with automatic cleanup
+- 2 commits: 3b81c89 (auth callbacks), 26f079e (register page)
 
 ### What's Next
 
 **Continue Phase 7 execution:**
-1. Execute Plan 07-02: Login/Register Pages
-2. Execute Plan 07-03: Auth Flow Callbacks
-3. Execute Plan 07-04: Main App with st.navigation
-4. Execute Plan 07-05: Token Refresh and Cookie Persistence
+1. Execute Plan 07-04: Main App with st.navigation
+2. Execute Plan 07-05: Token Refresh and Cookie Persistence
 
 ### Context for Next Session
 
@@ -227,19 +231,24 @@ Research identified 7 critical pitfalls for frontend development:
 - Read .planning/STATE.md for current position
 - Current milestone: v1.1 Streamlit Test Frontend
 - Current phase: 7 (Foundation & Authentication)
-- Action: Execute Plan 07-02
+- Action: Execute Plan 07-04
 
 **Key context to carry forward:**
 - frontend/utils/api_client.py provides login(), register(), logout(), refresh_tokens()
-- frontend/utils/session.py provides init_session_state(), get_user_info(), is_token_expired(), etc.
+- frontend/utils/session.py provides init_session_state(), get_user_info(), is_token_expired(), set_auth_state()
+- frontend/utils/auth.py provides handle_login(), handle_register() callbacks
+- frontend/pages/login.py - Login page with callback pattern
+- frontend/pages/register.py - Register page with callback pattern
 - Use @st.cache_resource for singleton clients (established pattern)
 - Use asyncio.run() for sync wrappers around async functions
 - JWT decode without verification is safe (backend already validated)
+- Callback pattern: on_click=handler, never call st.rerun() in handler
 
 **Files to reference:**
-- .planning/phases/07-foundation-authentication/07-01-SUMMARY.md - What was built
-- frontend/utils/api_client.py - API client functions
-- frontend/utils/session.py - Session state utilities
+- .planning/phases/07-foundation-authentication/07-03-SUMMARY.md - Registration page summary
+- frontend/utils/auth.py - Auth callback handlers
+- frontend/pages/login.py - Login page
+- frontend/pages/register.py - Register page
 
 ### Warnings
 
