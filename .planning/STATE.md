@@ -1,6 +1,6 @@
 # Project State: RAGWithGraphStore
 
-**Last Updated:** 2026-02-05T12:47:30Z
+**Last Updated:** 2026-02-05T12:51:00Z
 
 ## Project Reference
 
@@ -15,11 +15,11 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 **Phase:** 7 - Foundation & Authentication
-**Plan:** 3 of 5 complete
+**Plan:** 4 of 5 complete
 **Status:** In progress
-**Last activity:** 2026-02-05 — Completed 07-03-PLAN.md (Registration Page)
+**Last activity:** 2026-02-05 — Completed 07-04-PLAN.md (Main App Entry Point)
 
-**Progress:** ███░░░░░░░░░░░░░░░░░ Phase 7/12 (Plan 3/5)
+**Progress:** ████░░░░░░░░░░░░░░░░ Phase 7/12 (Plan 4/5)
 
 **Overall:** Backend v1.0 complete (Phases 1-5), Phase 6 deferred, Frontend v1.1 Plan 07-01 complete
 
@@ -44,7 +44,7 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 | Phase | Requirements | Status | Started |
 |-------|--------------|--------|---------|
-| 7. Foundation & Authentication | 6 | Plan 3/5 complete | 2026-02-05 |
+| 7. Foundation & Authentication | 6 | Plan 4/5 complete | 2026-02-05 |
 | 8. Document Management | 6 | Not started | - |
 | 9. RAG Query & Streaming | 6 | Not started | - |
 | 10. Document Comparison | 3 | Not started | - |
@@ -76,9 +76,9 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 - Trend: Consistent execution velocity, leveraging existing infrastructure
 
 **Velocity (v1.1 Frontend):**
-- Plans completed: 3
-- Total execution time: 12 min
-- Average plan duration: 4 min
+- Plans completed: 4
+- Total execution time: 13 min
+- Average plan duration: 3.3 min
 
 ## Accumulated Context
 
@@ -115,6 +115,9 @@ Key architectural decisions carried forward to frontend:
 | Reuse session.py utilities | decode_token_claims, set_auth_state already exist, import rather than duplicate | 2026-02-05 |
 | Error via session_state | Store login_error in session_state, display after callback completes | 2026-02-05 |
 | Client-side password validation | Validate passwords match before API call to reduce unnecessary requests | 2026-02-05 |
+| st.navigation in app.py only | Prevents Pitfall #6 (multiple navigation calls cause errors) | 2026-02-05 |
+| Material icons for navigation | Modern look, consistent with Streamlit 1.54+ | 2026-02-05 |
+| Dynamic import in render_user_info | Avoids circular auth.py <-> session.py import | 2026-02-05 |
 
 ### Open Questions
 
@@ -146,8 +149,8 @@ Key architectural decisions carried forward to frontend:
 - [ ] Implement cookie-based JWT token storage from start (prevents Pitfall #1)
 - [x] Create login page with callback pattern (prevents Pitfall #2) - Plan 07-02
 - [x] Create register page with callback pattern - Plan 07-03
-- [ ] Create logout flow with state guards
-- [ ] Implement dynamic navigation with st.navigation
+- [x] Create logout flow with state guards - Plan 07-04
+- [x] Implement dynamic navigation with st.navigation - Plan 07-04
 
 **Next (Phase 8):**
 - [ ] File upload with proper multipart encoding (prevents Pitfall #5)
@@ -212,18 +215,19 @@ Research identified 7 critical pitfalls for frontend development:
 
 ### What Just Happened
 
-**Plan 07-03 completed:**
-- Created frontend/utils/auth.py with handle_login() and handle_register() callbacks
-- Created frontend/pages/register.py with callback-based registration form
-- Client-side password validation before API call
-- Error handling via session_state with automatic cleanup
-- 2 commits: 3b81c89 (auth callbacks), 26f079e (register page)
+**Plan 07-04 completed:**
+- Added handle_logout() callback to auth.py
+- Added render_user_info() sidebar widget to session.py
+- Created frontend/pages/home.py for authenticated users
+- Created frontend/pages/debug.py for development
+- Created frontend/app.py with dynamic navigation
+- st.navigation() called exactly once in app.py (Pitfall #6 prevention)
+- 3 commits: 2459f6d (logout/sidebar), b8938d7 (home page), f704e7e (app.py/debug)
 
 ### What's Next
 
 **Continue Phase 7 execution:**
-1. Execute Plan 07-04: Main App with st.navigation
-2. Execute Plan 07-05: Token Refresh and Cookie Persistence
+1. Execute Plan 07-05: Token Refresh and Cookie Persistence
 
 ### Context for Next Session
 
@@ -231,24 +235,23 @@ Research identified 7 critical pitfalls for frontend development:
 - Read .planning/STATE.md for current position
 - Current milestone: v1.1 Streamlit Test Frontend
 - Current phase: 7 (Foundation & Authentication)
-- Action: Execute Plan 07-04
+- Action: Execute Plan 07-05
 
 **Key context to carry forward:**
+- frontend/app.py is the main entry point with st.navigation
 - frontend/utils/api_client.py provides login(), register(), logout(), refresh_tokens()
-- frontend/utils/session.py provides init_session_state(), get_user_info(), is_token_expired(), set_auth_state()
-- frontend/utils/auth.py provides handle_login(), handle_register() callbacks
-- frontend/pages/login.py - Login page with callback pattern
-- frontend/pages/register.py - Register page with callback pattern
+- frontend/utils/session.py provides init_session_state(), render_user_info(), clear_auth_state(), set_auth_state()
+- frontend/utils/auth.py provides handle_login(), handle_register(), handle_logout() callbacks
+- frontend/pages/home.py - Home page for authenticated users
+- frontend/pages/debug.py - Debug page showing session state
 - Use @st.cache_resource for singleton clients (established pattern)
 - Use asyncio.run() for sync wrappers around async functions
-- JWT decode without verification is safe (backend already validated)
 - Callback pattern: on_click=handler, never call st.rerun() in handler
 
 **Files to reference:**
-- .planning/phases/07-foundation-authentication/07-03-SUMMARY.md - Registration page summary
-- frontend/utils/auth.py - Auth callback handlers
-- frontend/pages/login.py - Login page
-- frontend/pages/register.py - Register page
+- .planning/phases/07-foundation-authentication/07-04-SUMMARY.md - Main app summary
+- frontend/app.py - Main entry point with navigation
+- frontend/utils/session.py - Session utilities including render_user_info()
 
 ### Warnings
 
