@@ -178,3 +178,35 @@ def set_auth_state(access_token: str, refresh_token: str) -> None:
     else:
         # Token decode failed, clear state
         clear_auth_state()
+
+
+def render_user_info() -> None:
+    """Render user info widget in the sidebar.
+
+    Shows different content based on authentication state:
+    - Authenticated: email, role, session type, logout button
+    - Anonymous: anonymous session info, login hint
+
+    Must be called after init_session_state() and imports handle_logout
+    dynamically to avoid circular imports.
+    """
+    # Import handle_logout here to avoid circular import
+    # (auth.py imports from session.py)
+    from utils.auth import handle_logout
+
+    with st.sidebar:
+        st.markdown("### User Info")
+
+        if st.session_state.get("is_authenticated"):
+            user_info = st.session_state.get("user_info", {})
+            email = user_info.get("sub", "Unknown")
+            role = user_info.get("role", "user")
+
+            st.markdown(f"**Email:** {email}")
+            st.markdown(f"**Role:** {role}")
+            st.markdown("**Session:** Authenticated")
+
+            st.button("Logout", on_click=handle_logout, key="sidebar_logout")
+        else:
+            st.markdown("**Session:** Anonymous")
+            st.caption("Login to save your data permanently")

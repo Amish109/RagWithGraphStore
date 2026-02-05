@@ -13,8 +13,8 @@ Key patterns:
 
 import streamlit as st
 
-from utils.api_client import login, register
-from utils.session import set_auth_state
+from utils.api_client import login, logout, register
+from utils.session import clear_auth_state, set_auth_state
 
 
 def handle_login() -> None:
@@ -117,3 +117,31 @@ def handle_register() -> None:
             st.session_state.register_error = "Invalid response from server"
     # Note: On failure, register() already calls st.error() and returns None
     # We don't need to set register_error here as the error is already shown
+
+
+def handle_logout() -> None:
+    """Callback handler for logout button.
+
+    Calls the logout API to invalidate the current access token,
+    then clears local auth state. Streamlit auto-reruns after callback,
+    which will show the login page due to is_authenticated being False.
+
+    Session state inputs:
+        - access_token: Current JWT access token
+
+    Session state outputs:
+        - is_authenticated: False
+        - access_token: None
+        - refresh_token: None
+        - user_info: None
+        - session_type: "anonymous"
+    """
+    access_token = st.session_state.get("access_token")
+
+    if access_token:
+        # Call API to invalidate token (best effort, don't block on failure)
+        logout(access_token)
+
+    # Always clear local state regardless of API result
+    # This ensures user is logged out even if backend is unreachable
+    clear_auth_state()
