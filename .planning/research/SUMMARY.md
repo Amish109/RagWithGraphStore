@@ -1,417 +1,243 @@
 # Project Research Summary
 
-**Project:** RAG with Memory Management (Mem0 + Neo4j + Qdrant)
-**Domain:** Multi-User Document Q&A System with Persistent Memory
-**Researched:** 2026-02-04
+**Project:** RAG with Graph Store - Streamlit Test Frontend
+**Domain:** Test/Demo UI for FastAPI RAG Backend
+**Researched:** 2026-02-05
 **Confidence:** HIGH
 
 ## Executive Summary
 
-RAG systems with persistent memory represent the 2026 standard for enterprise document Q&A platforms. This project combines three critical technologies in a hybrid architecture: Neo4j (graph relationships), Qdrant (vector search), and Mem0 (intelligent memory management). This stack delivers 20-25% accuracy improvements over pure vector approaches while maintaining sub-2s response times. FastAPI provides the async-first API layer, LangChain handles LLM orchestration, and OpenAI's GPT-4o with text-embedding-3-small embeddings power the AI capabilities.
+A Streamlit test UI for a FastAPI backend serves a distinct purpose: comprehensive verification of backend functionality through a functional, debuggable interface. Unlike production UIs that hide complexity, test UIs should expose what's happening under the hood - showing request/response payloads, displaying backend errors verbatim, and exposing configuration options. This isn't bad UX for a test tool; it's essential for thorough backend validation.
 
-The recommended approach prioritizes vector-first retrieval enriched with graph relationships, semantic chunking over fixed-size splits, and three-tier memory isolation (user-private, session-temporary, tenant-shared). Multi-tenancy is achieved through query-time metadata filtering rather than separate database instances. The critical architectural decision is separating document knowledge (RAG) from user memory (Mem0) - confusing these two is the #1 cause of RAG system failures.
+The recommended approach leverages Streamlit 1.54.0's strengths for rapid prototyping: built-in components (file upload, session state), st.navigation for dynamic multi-page apps with role-based access, and SSE streaming via sseclient-py for real-time LLM responses. The core integration pattern uses a centralized API client (httpx 0.28.1+) stored in session state with JWT tokens in HTTP-only cookies for persistence across browser refreshes. Critical to success: avoid storing JWT tokens solely in session state (lost on refresh), prevent infinite rerun loops in authentication flows, and properly handle SSE streaming with generator wrappers for st.write_stream().
 
-Key risks include multi-tenant data isolation failures (critical security), memory deletion bugs leaving orphaned graph data (known Mem0 issue), LangGraph checkpoint bloat causing OOM errors, and poor chunking strategies torpedoing retrieval accuracy. These risks are entirely mitigatable with proper architecture from Phase 1: enforce tenant filtering in middleware, implement custom Neo4j cleanup, configure checkpoint TTL, and use semantic chunking from the start. The technology stack is production-proven, but the integration complexity requires careful phase ordering and testing.
+Key risks center on authentication state management (JWT persistence, anonymous session migration), SSE streaming buffering (requires proper generator conversion and proxy configuration), and file upload multipart encoding (Streamlit's UploadedFile must be converted to proper format). Mitigation: establish cookie-based token storage from the start, use sseclient-py with generator patterns for streaming, and implement proper multipart encoding with filename/bytes/type tuples. The 10-day timeline is realistic for covering all 24 backend features if SSE streaming complexity is addressed early in Phase 3.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The 2026 production stack for RAG systems with memory has crystallized around FastAPI + Mem0 + Neo4j + Qdrant + LangChain/LangGraph + OpenAI. This combination balances developer experience, performance, and production maturity. Mem0 specifically addresses the RAG-memory confusion that plagues 73% of failed RAG systems by providing purpose-built memory management with dual-store orchestration.
+Streamlit 1.54.0+ (latest as of Feb 2026) provides native multi-page apps with st.navigation, built-in session state management, and new st.App ASGI integration (skip for this milestone - adds complexity). Python 3.10+ required. For HTTP communication, httpx 0.28.1+ is recommended over requests (20% faster, HTTP/2 support, async/sync flexibility), paired with sseclient-py 1.7.2+ for consuming FastAPI SSE endpoints. Development uses python-dotenv 1.0.0+ for environment variable management alongside Streamlit's secrets system.
 
 **Core technologies:**
+- **Streamlit 1.54.0+**: Web UI framework - native multi-page apps with st.navigation, session state, file upload widgets, and st.write_stream for SSE consumption
+- **httpx 0.28.1+**: HTTP client for API calls - modern requests alternative with async/sync support, HTTP/2, ~20% faster performance
+- **sseclient-py 1.7.2+**: SSE stream consumption - pure-Python client for FastAPI EventSourceResponse, seamlessly integrates with httpx streaming
+- **python-dotenv 1.0.0+**: Environment variable management - standard for loading API URLs and config from .env files
 
-- **FastAPI (>=0.126.0)**: Async-first web framework - industry standard for ML/AI APIs in 2026, handles concurrent RAG requests efficiently with native async/await
-- **Mem0 SDK**: Intelligent memory management layer - 26% higher accuracy than OpenAI's memory, 91% lower latency than full-context, self-improving with contradiction resolution
-- **Neo4j (5.x) + neo4j driver (6.1.0)**: Graph database for entity relationships - enables multi-hop reasoning and GraphRAG, critical for document comparison features
-- **Qdrant (1.x) + qdrant-client (1.16.2)**: Vector database for semantic search - fast k-NN with hybrid search support, native Mem0 integration, sub-200ms retrieval
-- **LangChain (1.0+) + langchain-openai (1.1.7)**: LLM orchestration - de facto standard for RAG workflows, 100+ integrations, seamless LangGraph compatibility
-- **LangGraph (1.0+)**: Stateful agent workflows - production-grade state management with rollback/checkpointing for complex multi-step RAG
-- **OpenAI GPT-4o**: Reasoning model - production-ready for RAG generation
-- **OpenAI text-embedding-3-small**: Embeddings - best price/performance (5x cheaper than ada-002, 54.9% vs 31.4% MIRACL score)
-- **pymupdf4llm**: PDF processing - fastest for RAG (0.003-0.024s/page), outputs clean Markdown, sweet spot of speed and quality
-- **pwdlib with Argon2**: Password hashing - FastAPI official recommendation, GPU-resistant, OWASP-compliant
-- **Gunicorn + Uvicorn**: Deployment - industry standard multi-process + async workers pattern
-
-**Key architectural decisions:**
-- Use LangChain for linear RAG pipelines (document ingestion, retrieval, generation)
-- Add LangGraph only when stateful workflows require it (document comparison, iterative refinement)
-- Start with pymupdf4llm for PDFs; add Docling only if complex layouts/tables require it
-- Use query-time metadata filtering for multi-tenancy, not separate database instances
-- Short-lived JWTs (15-30 min) + refresh tokens for security
+**Critical anti-pattern:** DO NOT use streamlit-authenticator library - it manages its own user database and conflicts with FastAPI JWT auth. Store JWT tokens in st.session_state after login and include in Authorization headers for all API calls.
 
 ### Expected Features
 
-RAG systems in 2026 have clear table stakes vs. differentiators. Memory is no longer novel - it's expected. The real differentiation comes from how memory is managed, document processing sophistication, and trustworthiness through citations.
+Test UIs differ from production UIs: polish matters less than coverage and debuggability. Features should enable thorough testing without becoming a maintenance burden.
 
 **Must have (table stakes):**
-- PDF/DOCX upload and processing with streaming progress indicators
-- Natural language queries with streaming responses (non-streaming feels broken in 2026)
-- Source citations (mandatory - 17-33% hallucination rate makes this critical for trust)
-- "I don't know" responses when context is insufficient (prevents hallucinations)
-- Conversation history with session persistence (memory is table stakes, not differentiator)
-- Multi-user isolation with document access control (security requirement, not just feature)
-- JWT authentication with user registration/login
-- Anonymous session support (reduce friction for trial users)
-- Document list/management and deletion (GDPR/privacy requirement)
-- Sub-2 second query response times (slower feels broken)
-- Graceful error handling and rate limiting
+- **Authentication testing:** Login/register forms, logout button, token refresh, anonymous session support, auth state display showing current user/role/token expiry
+- **Document management testing:** File upload widget with progress bar, document list display (verify user isolation), delete document functionality, document summary view
+- **RAG query testing:** Query input, streaming response display with SSE, citation display with confidence scores, chat history for context verification, simplification request toggle
+- **Memory management testing:** Add personal fact, add shared knowledge (admin only), view memory, clear memory for test cleanup
+- **Multi-user isolation testing:** Multi-tab login capability, user switching for test accounts, isolation verification showing user sees only their data, anonymous to auth migration flow
+- **Debugging & observability:** Request/response inspector (raw JSON), error display (full backend errors), API endpoint selector (localhost/staging/prod), performance metrics (latency tracking)
 
-**Should have (competitive edge):**
-- Multi-document comparison powered by GraphRAG (few RAG systems do this well - leverage your Neo4j advantage)
-- Shared knowledge spaces for team collaboration (major enterprise need)
-- Document summarization (saves user time on long documents)
-- Highlighted citations showing exact text passages (superior UX)
-- Follow-up question suggestions (guides exploration)
-- Confidence scores (builds trust - users know when to verify)
-- Memory summarization to prevent context overflow
-- Cross-session memory (system "remembers" user preferences)
+**Should have (competitive):**
+- **Enhanced testing features:** Bulk document upload for load testing, query templates for repetitive tests, test data generator for fake users/documents, state snapshot (export/import session state), automated test scenarios
+- **Enhanced UX features:** Sidebar navigation with st.navigation, export test results to JSON/CSV, comparison view for side-by-side response testing
+- **Advanced debugging:** Token counter for API cost monitoring, memory inspector to visualize Mem0 state (complex, may use Neo4j Browser instead)
 
 **Defer (v2+):**
-- Advanced chunking strategies (start with semantic, optimize later)
-- Reranking layer (10-20% improvement but adds complexity)
-- Hybrid search (combine semantic + keyword BM25)
-- Multimodal support (images, charts - very high complexity)
-- Document versioning (VersionRAG framework)
-- Voice input
-- Integrations (Slack, Teams, etc.)
-- Advanced analytics dashboard
-- Custom embedding models (OpenAI embeddings suffice for general use)
+- Production-grade design polish (default Streamlit components are sufficient for test UI)
+- Responsive mobile layout (developers test on desktop)
+- Custom CSS/styling beyond basics (maintenance burden)
+- Backend logs viewer (complex, requires log streaming endpoint)
+- Session replay (complex in Streamlit's execution model)
+- Real-time collaboration (not testing collaborative features)
 
-**Anti-features (explicitly don't build):**
-- Custom embedding fine-tuning (expensive, rarely beats OpenAI for general use)
-- 100+ configuration options exposed to users (decision paralysis)
-- Multi-LLM provider support (adds complexity for minimal benefit)
-- Real-time collaborative document editing (different product category)
-- Every document format (start PDF + DOCX, covers 80% of use cases)
+**Anti-features (don't build):**
+- Hiding backend errors (test UI must show what failed)
+- Auto-retry on failure (masks intermittent issues)
+- Mocking backend responses (defeats purpose of testing real backend)
+- Input validation on frontend (test backend validation instead)
+- User management UI (create test users via backend scripts)
 
 ### Architecture Approach
 
-The recommended architecture is a seven-layer hybrid system: API layer (FastAPI with auth), document processing pipeline (ingestion, chunking, entity extraction), dual storage (Neo4j graph + Qdrant vectors with shared IDs), hybrid retrieval (vector-first with graph enrichment), memory management (Mem0 with three-tier isolation), LLM generation (LangChain orchestration with OpenAI), and memory update loop (extract and persist new context).
+The architecture separates concerns: app.py as navigation entrypoint with st.navigation, pages/ directory for individual feature pages, utils/ for business logic (API client, auth helpers, streaming utilities, reusable components). This structure makes code testable and maintainable.
 
 **Major components:**
+1. **app.py (Entrypoint)** - Navigation menu using st.navigation with dynamic page building based on auth state and role. Initializes session state (api_client, auth tokens), builds page dictionary conditionally (admin pages only for admin role), runs navigation.
+2. **utils/api_client.py (Centralized API Communication)** - Single APIClient instance in session state manages authentication headers and requests. Uses httpx.Session with JWT tokens in Authorization header, handles token refresh on 401, provides consistent error handling across all pages.
+3. **pages/*.py (Feature Pages)** - Individual pages for login (01_login.py), documents (02_documents.py), chat (03_chat.py), comparison (04_comparison.py), memory (05_memory.py), admin (06_admin.py). Each calls utils/api_client for backend communication.
+4. **utils/auth.py (Auth State Management)** - Handles login/logout flows, stores JWT tokens in HTTP-only cookies (persistence across refresh) + session state (runtime access), manages token expiry checking and refresh, provides is_authenticated() helpers.
+5. **utils/streaming.py (SSE Streaming Helpers)** - Converts FastAPI SSE endpoints to Python generators for st.write_stream(). Wraps sseclient-py to consume EventSourceResponse, yields chunks incrementally for typewriter effect.
 
-1. **API Layer (FastAPI)** - Handles HTTP requests, JWT validation, session management, and query orchestration; async/await for non-blocking I/O with 1000+ concurrent user support
-2. **Document Processing Pipeline** - Offline async pipeline for PDF/DOCX parsing, semantic chunking, entity extraction, and dual-write to both Neo4j and Qdrant with shared UUIDs
-3. **Dual Storage (Neo4j + Qdrant)** - Neo4j stores entities, relationships, and graph structure for multi-hop reasoning; Qdrant stores vector embeddings for semantic search; linked via shared chunk IDs
-4. **Hybrid Retrieval Layer** - Vector-first strategy: query Qdrant for top-K chunks, extract entity IDs, expand with Neo4j graph traversal, fuse contexts for enriched retrieval
-5. **Memory Management (Mem0)** - Three-tier isolation: user-private memory (preferences), session-temporary memory (current conversation), tenant-shared memory (team knowledge); uses Neo4j for relationships + Qdrant for vectors
-6. **LLM Generation Layer** - LangChain assembles context (documents + graph + memory), OpenAI GPT-4o generates responses, streaming for UX, strict prompts with "I don't know" fallback
-7. **Memory Update Loop** - Post-response extraction of salient facts, update user/shared memory via Mem0, available for next query
-
-**Critical patterns to follow:**
-- **Vector-First, Graph-Enriched Retrieval**: Use Qdrant for fast semantic search (breadth), then Neo4j for relationship context (depth)
-- **Shared ID Linkage**: Identical UUIDs in Neo4j and Qdrant enable efficient cross-referencing without data duplication
-- **Three-Tier Memory Isolation**: Separate user-private, session-temporary, and tenant-shared memory spaces
-- **Semantic Chunking**: Chunk by semantic boundaries (paragraphs, sections), not fixed character counts; 15-30% accuracy improvement
-- **Query-Time Tenant Filtering**: Filter by tenant_id/user_id at query time in both Qdrant and Neo4j, not separate databases
-- **Async Document Processing**: Decouple indexing from API requests using FastAPI BackgroundTasks; maintain responsiveness for large files
+**Key architectural patterns:**
+- **Centralized API client with session state:** Single source of truth for backend communication, consistent auth header management, token refresh in one place
+- **Dynamic navigation based on auth state:** st.navigation with conditional page visibility (admin pages only for admin role), enforces access control at navigation level
+- **Token persistence across reloads:** HTTP-only cookies (persists across refresh) + session state (runtime convenience), mitigates WebSocket disconnect issue
+- **SSE streaming with st.write_stream:** Consume FastAPI SSE with sseclient-py, convert to generator, display with typewriter effect
+- **Progress tracking for uploads:** Poll backend task status endpoint, display with st.progress and st.status for long-running tasks
 
 ### Critical Pitfalls
 
-Research identified 17 documented pitfalls across critical, moderate, and minor severity. The top 5 must be prevented in Phase 1-2 or they require major rework.
+1. **JWT Token Lost on Browser Refresh** - JWT tokens stored only in st.session_state disappear on browser refresh, logging users out unexpectedly. Session state survives script reruns but not WebSocket disconnects or page refreshes. **Prevention:** Store JWT tokens in HTTP-only cookies (using streamlit-cookies-manager or extra-streamlit-components) as primary storage, with session state as read cache. Backend sets tokens in secure, same-site cookies that persist across refreshes.
 
-1. **Confusing RAG with Agent Memory** - Using RAG's semantic similarity for user memory causes agents to "forget" context (20-30% higher hallucination rates); prevent by using Mem0's hybrid approach (Neo4j for relationships + Qdrant for documents) and designing separate memory types from start
-2. **Multi-Tenant Isolation Failures** - Single collection without proper filtering allows cross-user data access (critical security breach, GDPR/SOC2 violations); prevent with Qdrant v1.16+ tiered multitenancy, enforce tenant_id filtering in middleware, audit all queries
-3. **Poor Chunking Strategy** - Fixed-size chunking (e.g., "split every 512 tokens") destroys semantic context (30-50% accuracy drop); prevent with semantic chunking that respects document structure, use layout-aware parsers like Docling for complex PDFs
-4. **JWT Security Vulnerabilities** - Hardcoded secrets, no signature validation, accepting "none" algorithm enables full account takeover; prevent with strong secrets in env vars, short expiration (15 min), HTTPS only, never log full tokens
-5. **Memory Deletion Leaving Orphaned Graph Data** - Mem0 `delete()` removes Qdrant vectors but leaves Neo4j nodes/relationships (known GitHub issue #3245); prevent with custom deletion logic, monitoring for orphans, periodic cleanup jobs, test deletion workflows thoroughly
+2. **Infinite Rerun Loop in Authentication Flow** - Calling st.rerun() inside button handlers without state guards creates infinite loops. Buttons return True only on click rerun, then immediately False, but if st.rerun() executes before state updates, condition repeats indefinitely. **Prevention:** Use session state flags instead of direct button checks (set st.session_state.authenticated = True in callback), use callbacks on buttons rather than inline st.rerun() calls, add state guards (if not st.session_state.get('auth_in_progress')) before triggering rerun.
 
-**Additional critical pitfalls:**
-- **LangGraph checkpoint bloat** - Storing large objects in state causes OOM errors; configure TTL, store IDs not content, implement sliding window for conversations
-- **Embedding dimension mismatches** - Changing models mid-development requires recreating collections; lock embedding model early, centralize logic, validate dimensions at startup
-- **Graph schema neglect** - No upfront schema leads to performance collapse at scale; design node/relationship types before ingestion, add indexes on critical properties
-- **Context pollution** - Retrieving too many irrelevant chunks degrades LLM reasoning by 20-30%; implement re-ranking, set relevance thresholds, start with top-3 not top-10
-- **No evaluation framework** - Quality degrades silently without metrics; implement RAGAS evaluation from Phase 1, track Precision@K, Recall@K, MRR
+3. **SSE Streaming Buffered Instead of Real-Time** - SSE responses from FastAPI appear all at once after completion rather than streaming incrementally. Using standard HTTP clients without proper SSE handling causes chunk buffering. st.write_stream() expects Python generators, not raw SSE EventSource. **Prevention:** Use sseclient-py library to consume SSE streams, convert SSE stream to Python generator before passing to st.write_stream(), ensure FastAPI StreamingResponse with media_type="text/event-stream", disable buffering in proxies (nginx X-Accel-Buffering: no).
+
+4. **Anonymous Session Data Orphaned Without Migration** - Users create content as anonymous users, then register. Without explicit migration logic, their documents/memories remain tied to old anonymous ID in Neo4j/Qdrant, unreachable after auth. **Prevention:** Store anonymous session ID in HTTP-only cookie for persistence, on registration check for anonymous_session_id cookie, backend migration endpoint updates documents from anonymous_session_id to authenticated_user_id, handle race conditions with locking, implement TTL-based cleanup job for unmigrated anonymous data.
+
+5. **File Upload Fails with 422 Unprocessable Entity** - st.file_uploader() returns UploadedFile object (BytesIO wrapper), not raw bytes. Sending directly to FastAPI causes type mismatch and validation failure. **Prevention:** Extract bytes with uploaded_file.getvalue(), format as proper multipart tuple with (filename, bytes, mime_type), use requests files parameter correctly: files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
 
 ## Implications for Roadmap
 
-Based on architecture dependencies and pitfall prevention, the roadmap should follow a strict sequential build with these phases:
+Based on research, this is a 10-day project with 5 phases focused on feature coverage over polish. Critical path: establish authentication foundation with cookie persistence first, then document management, then SSE streaming (complex but essential), then memory/multi-user testing, finally debugging enhancements.
 
-### Phase 1: Foundation & Core RAG (Weeks 1-2)
-**Rationale:** Authentication, database infrastructure, and basic document processing are prerequisites for all other components. Core RAG must work before adding memory complexity.
+### Phase 1: Authentication Foundation (Day 1-2)
+**Rationale:** All features depend on working auth. Token persistence and session state management must be established correctly from the start - retrofitting cookie storage after building on session-state-only auth is architecturally disruptive. Dynamic navigation with st.navigation enables role-based access control needed for admin features.
 
-**Delivers:** Working document upload, parsing, embedding, storage, basic retrieval, and query answering with citations
+**Delivers:** Users can login/register, logout, see auth state (current user/role/token status), navigate between test areas. Anonymous session support enabled. Navigation menu appears with role-based page visibility.
 
-**Addresses (table stakes):**
-- PDF/DOCX upload and processing (use pymupdf4llm for speed)
-- Semantic chunking (400-512 tokens, 15% overlap) - prevents pitfall #3
-- Vector storage in Qdrant with tenant metadata
-- Basic retrieval with source citations
-- JWT authentication + anonymous sessions
-- Database connections (Neo4j, Qdrant)
+**Addresses:** Login form, registration form, logout button, token refresh, anonymous session, auth state display (from FEATURES.md table stakes)
 
-**Avoids (critical pitfalls):**
-- Pitfall #3: Semantic chunking from start, not fixed-size
-- Pitfall #7: Lock embedding model (text-embedding-3-small), validate dimensions
-- Pitfall #8: Design Neo4j schema (nodes: User, Document, Chunk, Entity; relationships: OWNS, CONTAINS, MENTIONS, RELATES_TO)
-- Pitfall #4: JWT security basics (env vars, signature validation, short expiration)
+**Avoids:** Pitfall #1 (JWT token lost on refresh) by implementing HTTP-only cookies from start, Pitfall #2 (infinite rerun loop) by using callbacks and state guards in auth flow, Pitfall #6 (pickle vulnerability) by validating JWT claims before session state storage
 
-**Research flag:** Standard patterns. Skip phase-specific research.
+**Stack elements:** Streamlit 1.54.0 with st.navigation, httpx for API calls, python-dotenv for API_URL config
 
-### Phase 2: Multi-User Core & Memory Integration (Week 3)
-**Rationale:** Multi-tenancy must be rock solid before user data ingestion. Memory layer sits on top of working retrieval. This phase addresses 3 critical security pitfalls.
+**Research flag:** SKIP - Well-documented patterns for Streamlit auth and st.navigation
 
-**Delivers:** Secure multi-user isolation, Mem0 memory management, conversation persistence
+### Phase 2: Document Upload & Management (Day 3-4)
+**Rationale:** Documents are foundational for RAG queries. Must work before testing Q&A features. Progress tracking pattern established here applies to other long-running operations (document comparison).
 
-**Uses (stack elements):**
-- Mem0 SDK configured with Neo4j + Qdrant dual stores
-- Query-time metadata filtering (tenant_id, user_id)
-- Three-tier memory: user-private, session-temporary, tenant-shared
+**Delivers:** Users can upload documents (PDF/DOCX) with progress indication, see document list filtered by user (verify isolation), delete documents with confirmation, view document summaries. Error handling for upload failures.
 
-**Addresses (table stakes):**
-- Multi-user isolation with document access control
-- Session persistence and conversation history
-- User-specific document collections
+**Addresses:** File upload widget, upload progress bar, document list display, delete document, document summary view (from FEATURES.md table stakes)
 
-**Avoids (critical pitfalls):**
-- Pitfall #1: Separate RAG (document knowledge) from memory (user context) architecturally
-- Pitfall #4: Multi-tenant filtering in middleware, test with wrong tenant_id attempts
-- Pitfall #2: Implement custom Neo4j deletion to prevent orphaned data
-- Pitfall #5: Comprehensive JWT security (refresh tokens, HTTPS, audit logging)
+**Avoids:** Pitfall #5 (file upload 422 error) by implementing proper multipart encoding with getvalue()/filename/type tuple pattern
 
-**Research flag:** Needs research. Multi-tenant security patterns with Mem0 + dual stores are complex. Consider `/gsd:research-phase` for isolation testing strategies.
+**Stack elements:** Streamlit file_uploader widget (200MB default limit, override if needed), httpx multipart/form-data upload
 
-### Phase 3: UX & Streaming (Week 4)
-**Rationale:** Core features work but UX needs polish for production feel. Streaming responses are table stakes in 2026.
+**Implements:** Document management component from ARCHITECTURE.md, polling status endpoint pattern
 
-**Delivers:** Streaming responses, document management UI, query history, progress indicators, "I don't know" fallback
+**Research flag:** SKIP - Standard file upload patterns, well-documented
 
-**Addresses (table stakes):**
-- Streaming responses via SSE (non-streaming feels broken)
-- Document list/management CRUD operations
-- Query history persistence
-- Delete documents (cascade to both stores)
-- "I don't know" responses (hallucination prevention)
-- Progress indicators and loading states
+### Phase 3: RAG Query & SSE Streaming (Day 5-7)
+**Rationale:** Core product feature and most complex technical challenge. SSE streaming requires generator wrapper patterns and proper proxy configuration. Citations and confidence scores are table stakes for RAG testing. This phase takes longest due to SSE complexity.
 
-**Avoids (pitfalls):**
-- Pitfall #2: Test document deletion thoroughly (custom Neo4j cleanup)
-- Pitfall #12: Set up basic evaluation framework (track MRR, precision)
+**Delivers:** Users can submit queries, see streaming responses with typewriter effect, view citations (source doc, page, confidence score), access chat history for context verification, request simplified answers. Performance metrics track latency.
 
-**Research flag:** Standard patterns. Skip phase-specific research.
+**Addresses:** Query input, streaming response display, citation display, confidence score, chat history, simplification request (from FEATURES.md table stakes)
 
-### Phase 4: LangGraph & Advanced Workflows (Week 5)
-**Rationale:** Add LangGraph only when stateful workflows are needed (document comparison, iterative refinement). Earlier phases use LangChain for linear RAG.
+**Avoids:** Pitfall #3 (SSE buffering) by using sseclient-py with generator conversion for st.write_stream(), proper FastAPI StreamingResponse configuration, proxy buffering disabled if needed
 
-**Delivers:** Document comparison, complex multi-step queries, workflow state management
+**Stack elements:** sseclient-py 1.7.2+ for SSE consumption, httpx streaming, st.write_stream for typewriter display
 
-**Implements (architecture component):**
-- LangGraph for stateful workflows
-- GraphRAG multi-hop reasoning with Neo4j
-- Document comparison leveraging graph relationships
+**Implements:** Query & Response component from ARCHITECTURE.md with SSE streaming pattern, utils/streaming.py generator wrapper
 
-**Addresses (differentiators):**
-- Multi-document comparison (competitive advantage - few do this well)
-- Memory summarization to prevent context overflow
-- Advanced query routing with workflow state
+**Research flag:** NEEDS RESEARCH - SSE streaming in Streamlit is non-trivial, test with real backend early to catch buffering issues
 
-**Avoids (critical pitfalls):**
-- Pitfall #6: Configure LangGraph checkpoint TTL (30 days active, 7 days completed)
-- Pitfall #6: Never store document content in state (store IDs only)
-- Pitfall #6: Implement sliding window for conversation history
-- Pitfall #15: Use appropriate async patterns (profile before optimizing)
+### Phase 4: Memory & Multi-User Testing (Day 8-9)
+**Rationale:** Memory features (personal/shared) and multi-user isolation testing are differentiating capabilities. Anonymous-to-auth migration is unique feature requiring careful testing. Role-based access (admin-only shared knowledge) validates RBAC implementation.
 
-**Research flag:** Needs research. LangGraph with dual stores (Neo4j + Qdrant) for document comparison is complex. Consider `/gsd:research-phase` for workflow patterns.
+**Delivers:** Users can add personal facts, view stored memories, clear memory for test cleanup. Admins can add shared knowledge (role-gated UI). Multi-tab testing instructions provided. User switching dropdown for quick test account login. Isolation verification display confirms user sees only their data. Anonymous → auth migration test flow validates data transfer.
 
-### Phase 5: Differentiation Features (Week 6)
-**Rationale:** Value-added features build on solid foundation. These create competitive advantage.
+**Addresses:** Add personal fact, add shared knowledge (admin), view memory, clear memory, multi-tab login, user switching, isolation verification, anonymous → auth migration (from FEATURES.md table stakes)
 
-**Delivers:** Shared knowledge spaces, document summaries, highlighted citations, confidence scores, follow-up suggestions
+**Avoids:** Pitfall #4 (anonymous session orphaning) by implementing and testing migration flow end-to-end, verifying documents appear in authenticated view after registration
 
-**Addresses (differentiators):**
-- Shared knowledge spaces (team collaboration)
-- Document summarization (saves user time)
-- Highlighted citations (superior to basic citations)
-- Follow-up question suggestions (guides exploration)
-- Confidence scores (builds trust)
+**Stack elements:** Memory API endpoints (personal/shared), admin page with conditional navigation
 
-**Avoids (pitfalls):**
-- Pitfall #9: Implement re-ranking to reduce context pollution
-- Pitfall #17: Document comparison scaling (chunk-level, not full documents)
-- Pitfall #13: Store rich metadata for retrieval boost
+**Implements:** Memory Features component from ARCHITECTURE.md, admin features with role checking
 
-**Research flag:** Standard patterns. Skip phase-specific research.
+**Research flag:** SKIP - Standard REST API patterns, migration flow needs testing but not research
 
-### Phase 6: Production Hardening (Week 7)
-**Rationale:** Production-readiness is final step after all features built. Cannot optimize what doesn't exist.
+### Phase 5: Debugging & Polish (Day 10)
+**Rationale:** Debugging features improve testing efficiency but aren't blocking for functionality. Request/response inspector, error display, and API endpoint selector accelerate issue diagnosis. These are "nice-to-have" enhancements for production-quality test UI.
 
-**Delivers:** Observability, error handling, performance optimization, load testing
+**Delivers:** Request/response inspector shows raw JSON for debugging. Error display shows full backend error messages and stack traces. API endpoint selector switches between localhost/staging/prod. Performance metrics track request/streaming/total latency. Export test results downloads session data as JSON.
 
-**Addresses (production requirements):**
-- Logging, metrics, tracing (LangSmith or Prometheus)
-- Error handling with fallbacks
-- Sub-2s latency under load
-- Graceful degradation when dependencies fail
-- Rate limiting and cost protection
+**Addresses:** Request/response inspector, error display, API endpoint selector, performance metrics, export test results (from FEATURES.md table stakes + differentiators)
 
-**Avoids (pitfalls):**
-- Pitfall #12: Full evaluation framework (RAGAS, retrieval metrics)
-- Pitfall #14: Plan for embedding model updates (version metadata)
-- Pitfall #16: Neo4j vector index memory configuration
-- Performance profiling to identify actual bottlenecks
+**Stack elements:** Streamlit expander/columns for inspector UI, JSON display components
 
-**Research flag:** Standard patterns. Skip phase-specific research.
+**Implements:** utils/components.py reusable UI components (error_display, citation_card, loading_spinner)
+
+**Research flag:** SKIP - Standard Streamlit UI patterns
 
 ### Phase Ordering Rationale
 
-**Sequential dependencies (must follow this order):**
-1. Auth + Databases → All components need user/tenant context and storage
-2. Basic RAG → Cannot add memory to non-working retrieval
-3. Memory → Augments working RAG, cannot work standalone
-4. Multi-tenancy → Must be solid before real user data
-5. LangGraph → Requires stable RAG + memory foundation
-6. Differentiation → Builds on stable core
-7. Production hardening → Final layer after all features work
+- **Auth first (Phase 1)** because all subsequent features require working JWT token management. Cookie persistence must be architecturally correct from start - retrofitting is disruptive.
+- **Documents before queries (Phase 2)** because RAG queries in Phase 3 need documents to query against. Upload/list/delete establishes foundational CRUD patterns.
+- **Streaming early (Phase 3)** because SSE is most complex technical challenge. Solving generator wrapper patterns and proxy configuration early prevents late-stage blocking issues.
+- **Memory + multi-user testing late (Phase 4)** because they depend on working auth (Phase 1) and documents (Phase 2). Migration testing requires full auth flow.
+- **Debugging last (Phase 5)** because it's enhancement, not blocking. Inspector/metrics improve testing efficiency but UI is functional without them.
 
-**Why this prevents pitfalls:**
-- Phase 1 addresses chunking (#3), embedding dimensions (#7), schema design (#8) before data ingestion
-- Phase 2 addresses multi-tenancy (#4), memory confusion (#1), JWT security (#5) before real users
-- Phase 4 addresses checkpoint bloat (#6) when adding LangGraph, not after production issues
-- Early evaluation (#12) catches quality degradation throughout development
-
-**Parallel opportunities within phases:**
-- Phase 1: Document parsers + embedding service (independent)
-- Phase 1: Neo4j schema + Qdrant collections (different databases)
-- Phase 3: UI components + API endpoints (different layers)
-- Phase 6: Logging + metrics (independent observability)
+This order matches ARCHITECTURE.md build order (Wave 1-5) and addresses PITFALLS.md critical issues in prevention phases.
 
 ### Research Flags
 
 **Phases needing deeper research during planning:**
-- **Phase 2 (Multi-user Core):** Multi-tenant isolation with Mem0 dual stores is complex. Qdrant tiered multitenancy (v1.16+) patterns, Neo4j query-time filtering enforcement, testing strategies for cross-tenant access attempts. Consider `/gsd:research-phase` for security validation.
-- **Phase 4 (LangGraph Integration):** LangGraph workflow patterns for document comparison using GraphRAG, checkpoint configuration for production scale, state management with dual stores. Consider `/gsd:research-phase` for workflow design.
+- **Phase 3 (SSE Streaming):** SSE consumption in Streamlit is non-trivial. Generator wrapper patterns with sseclient-py, proxy buffering configuration, handling disconnect/reconnect. Test with real backend early to catch buffering issues before full implementation.
 
 **Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Foundation):** FastAPI + JWT auth + basic RAG is well-documented with extensive 2026 tutorials
-- **Phase 3 (UX & Streaming):** SSE streaming, document CRUD, progress indicators are standard FastAPI patterns
-- **Phase 5 (Differentiation):** Document summarization, citations, confidence scores have established LangChain patterns
-- **Phase 6 (Production Hardening):** Observability, error handling, load testing follow FastAPI deployment standards
+- **Phase 1 (Auth Foundation):** Well-documented Streamlit session state + JWT patterns, st.navigation examples in official docs
+- **Phase 2 (Document Management):** Standard file upload and CRUD patterns, well-documented in Streamlit + FastAPI integration guides
+- **Phase 4 (Memory & Multi-User):** Standard REST API integration, migration is implementation not research
+- **Phase 5 (Debugging & Polish):** Standard Streamlit UI components, no novel patterns
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | **HIGH** | All technologies verified from official docs (FastAPI, Mem0, Neo4j, Qdrant, LangChain, OpenAI). Versions checked against PyPI/official releases as of Jan 2026. Production-proven stack. |
-| Features | **HIGH** | Based on multiple 2026 production RAG reports, user expectations from ChatGPT/Claude baseline, and enterprise requirements. Table stakes vs differentiators clearly validated. |
-| Architecture | **HIGH** | Hybrid architecture (graph + vector + memory) is 2026 production standard. Official documentation from Mem0, Neo4j GraphRAG, Qdrant examples. Performance benchmarks published. |
-| Pitfalls | **HIGH** | Technology-specific issues verified from GitHub (Mem0 #3245, #3441), official docs (Neo4j memory config, Qdrant multitenancy), and 2026 security advisories (JWT vulnerabilities). Production post-mortems documented. |
+| Stack | HIGH | Streamlit 1.54.0 and httpx are latest stable versions with official documentation. SSE patterns verified in community examples. |
+| Features | HIGH | Test UI feature landscape well-defined by domain. Table stakes vs differentiators clear from RAG demo best practices and Streamlit use cases. |
+| Architecture | HIGH | Multi-page Streamlit app patterns documented in official guides. FastAPI integration patterns proven in multiple 2026 community examples. st.navigation approach is recommended 2026 pattern. |
+| Pitfalls | HIGH | All 7 critical pitfalls sourced from real-world Streamlit + FastAPI integration issues in GitHub issues, Stack Overflow, Streamlit Discuss forums. Prevention strategies verified. |
 
-**Overall confidence:** **HIGH**
+**Overall confidence:** HIGH
 
-All core technologies are mature (Neo4j, Qdrant, FastAPI) or purpose-built for this use case (Mem0). The hybrid architecture pattern is well-documented with official integration examples from Neo4j and Qdrant. Critical pitfalls are actively reported in GitHub issues and production incident reports, not theoretical concerns. The main complexity is integration orchestration, not individual technology risk.
+Research is based on official 2026 Streamlit documentation (1.54.0 release notes, st.navigation guide, session state API), FastAPI integration patterns from Pybites and TestDriven.io tutorials, and real-world pitfalls from Streamlit Discuss forums and GitHub issues. SSE streaming patterns verified in multiple community implementations.
 
 ### Gaps to Address
 
-**Gap 1: Mem0 active development and known bugs**
-- Mem0 has active issues (memory deletion incomplete #3245, embedding storage bugs #3441)
-- **Handle during planning:** Plan custom deletion logic, monitor GitHub for patches, implement workarounds
-- **Validation:** Test memory lifecycle (add, retrieve, update, delete) in Phase 2 with both stores
-- **Confidence:** MEDIUM - Mem0 is actively maintained but relatively new (watch for breaking changes)
+- **SSE streaming reliability with Streamlit reruns:** sseclient-py pattern is documented but interaction with Streamlit's rerun model needs validation. Does connection persist across reruns or need reconnect? Test with prototype early in Phase 3.
 
-**Gap 2: LangGraph checkpoint performance at scale**
-- Checkpoint bloat is well-documented but optimal TTL values are workload-dependent
-- **Handle during planning:** Phase 4 must include checkpoint profiling with realistic data volumes
-- **Validation:** Load test with 1000+ concurrent sessions, monitor database growth
-- **Confidence:** MEDIUM - Pattern is known, but tuning requires empirical testing
+- **File upload size limits interaction:** Streamlit default is 200MB. Does this conflict with FastAPI limits? Backend configuration should be checked and aligned. Test with large files (>10MB) in Phase 2.
 
-**Gap 3: Document comparison implementation complexity**
-- GraphRAG for multi-document comparison is differentiator but implementation sparse in docs
-- **Handle during planning:** Phase 4 should research GraphRAG patterns specifically for comparison
-- **Validation:** Prototype comparison workflow before full implementation
-- **Confidence:** MEDIUM - Neo4j graph capabilities proven, but application pattern is custom
+- **Token refresh timing strategy:** Should UI proactively refresh tokens before expiry (better UX, more complex), or reactively on 401 (simpler, occasional auth hiccups)? Recommend proactive for production-quality test UI, decide in Phase 1.
 
-**Gap 4: Multi-tenant filtering enforcement**
-- Query-time filtering is standard but enforcement across all access points requires vigilance
-- **Handle during planning:** Phase 2 must include security audit of all query paths
-- **Validation:** Penetration testing with crafted queries attempting cross-tenant access
-- **Confidence:** HIGH (pattern known) but CRITICAL (security failure mode)
+- **Anonymous session ID generation ownership:** Should Streamlit UI generate session ID or backend? Recommend backend for consistency and security (prevents client-side ID manipulation), confirm in Phase 1.
 
-**Gap 5: Embedding model future-proofing**
-- Current recommendation is text-embedding-3-small, but model landscape evolves
-- **Handle during planning:** Version embeddings in metadata, plan re-embedding strategy upfront
-- **Validation:** Test migration path with subset of data
-- **Confidence:** LOW - Embedding model changes are unpredictable
-
-**Gap 6: GraphRAG accuracy vs complexity tradeoff**
-- Adding Neo4j graph enrichment adds 20-25% accuracy but significant complexity
-- **Handle during planning:** Validate whether graph enrichment is worth complexity for your use case
-- **Validation:** A/B test pure vector vs hybrid retrieval on eval set
-- **Confidence:** MEDIUM - Benchmark data available but domain-specific
+- **Memory inspector visualization value:** Is there value in visualizing Neo4j graph/Qdrant vectors in test UI, or is Neo4j Browser sufficient? Recommend Neo4j Browser to avoid complexity, reassess in Phase 4 if needed.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-**Official Documentation:**
-- [Mem0 Official Docs - Introduction](https://docs.mem0.ai/introduction)
-- [Mem0 Qdrant Integration](https://qdrant.tech/documentation/frameworks/mem0/)
-- [Mem0 Research Paper (arXiv 2504.19413)](https://arxiv.org/abs/2504.19413)
-- [Neo4j GraphRAG Documentation](https://neo4j.com/docs/neo4j-graphrag-python/current/user_guide_rag.html)
-- [Integrate Qdrant and Neo4j to Enhance RAG Pipeline](https://neo4j.com/blog/developer/qdrant-to-enhance-rag-pipeline/)
-- [GraphRAG with Qdrant and Neo4j](https://qdrant.tech/documentation/examples/graphrag-qdrant-neo4j/)
-- [FastAPI OAuth2 with JWT (Official)](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/)
-- [LangChain and LangGraph 1.0 Milestones](https://www.blog.langchain.com/langchain-langgraph-1dot0/)
-- [Qdrant Multitenancy Guide](https://qdrant.tech/documentation/guides/multitenancy/)
-- [Qdrant 1.16 - Tiered Multitenancy](https://qdrant.tech/blog/qdrant-1.16.x/)
-
-**Package Versions (PyPI verified Jan 2026):**
-- [neo4j PyPI v6.1.0](https://pypi.org/project/neo4j/)
-- [qdrant-client PyPI v1.16.2](https://pypi.org/project/qdrant-client/)
-- [langchain-openai PyPI v1.1.7](https://pypi.org/project/langchain-openai/)
-
-**GitHub Issues (Active bugs):**
-- [Memory deletion does not clean up Neo4j graph data · Issue #3245](https://github.com/mem0ai/mem0/issues/3245)
-- [mem0.add() does not store embeddings in Qdrant · Issue #3441](https://github.com/mem0ai/mem0/issues/3441)
+- [Streamlit 2026 Release Notes](https://docs.streamlit.io/develop/quick-reference/release-notes/2026) - st.App ASGI entry point, OIDC tokens, file_uploader improvements, session-scoped caching
+- [Streamlit Multi-page Apps](https://docs.streamlit.io/develop/concepts/multipage-apps) - st.navigation best practices, dynamic page building
+- [Streamlit Session State](https://docs.streamlit.io/develop/concepts/architecture/session-state) - State management patterns, persistence limitations
+- [Streamlit st.write_stream](https://docs.streamlit.io/develop/api-reference/write-magic/st.write_stream) - Streaming content display with generators
+- [HTTPX 0.28.1 PyPI](https://pypi.org/project/httpx/) - Latest version, HTTP/2 support, performance benchmarks
+- [sseclient-py PyPI](https://pypi.org/project/sseclient-py/) - SSE client library for consuming FastAPI SSE endpoints
+- [FastAPI Request Files](https://fastapi.tiangolo.com/tutorial/request-files/) - File upload handling with UploadFile
 
 ### Secondary (MEDIUM confidence)
+- [From Backend To Frontend: Connecting FastAPI And Streamlit - Pybites](https://pybit.es/articles/from-backend-to-frontend-connecting-fastapi-and-streamlit/) - Client-server architecture patterns, API integration
+- [Serving ML Model with FastAPI and Streamlit - TestDriven.io](https://testdriven.io/blog/fastapi-streamlit/) - File upload patterns, deployment
+- [Implement JWT Authentication for Streamlit - Medium](https://blog.yusufberki.net/implement-jwt-authentication-for-the-streamlit-application-2e3b0ef884ef) - JWT token storage patterns, session state management
+- [FASTAPI-SSE-Event-Streaming with Streamlit - GitHub](https://github.com/sarthakkaushik/FASTAPI-SSE-Event-Streaming-with-Streamlit) - SSE streaming implementation example
+- [Bridging LangGraph and Streamlit - Medium](https://medium.com/@yigitbekir/bridging-langgraph-and-streamlit-a-practical-approach-to-streaming-graph-state-13db0999c80d) - SSE streaming patterns for LLM responses
+- [Why Session State Not Persisting Between Refresh - Streamlit Discuss](https://discuss.streamlit.io/t/why-session-state-is-not-persisting-between-refresh/32020) - Session state limitations, cookie persistence patterns
+- [Post Request with file_uploader Throws 422 - Streamlit Discuss](https://discuss.streamlit.io/t/post-request-with-parameter-as-a-streamlit-file-uploader-object-for-a-pdf-throws-422-unprocessable-entity-on-fastapi/45020) - File upload multipart encoding solution
+- [Using st.rerun in Button Causes Infinite Loop - GitHub Issue #9232](https://github.com/streamlit/streamlit/issues/9232) - Rerun loop prevention strategies
+- [Ultimate Guide to Securing JWT with httpOnly Cookies - Wisp Blog](https://www.wisp.blog/blog/ultimate-guide-to-securing-jwt-authentication-with-httponly-cookies) - Cookie security best practices
 
-**Industry Analysis (2026):**
-- [Building Production RAG Systems in 2026: Complete Architecture Guide](https://brlikhon.engineer/blog/building-production-rag-systems-in-2026-complete-architecture-guide)
-- [Learn How to Build Reliable RAG Applications in 2026](https://dev.to/pavanbelagatti/learn-how-to-build-reliable-rag-applications-in-2026-1b7p)
-- [The Next Frontier of RAG: Enterprise Knowledge Systems 2026-2030](https://nstarxinc.com/blog/the-next-frontier-of-rag-how-enterprise-knowledge-systems-will-evolve-2026-2030/)
-- [GraphRAG: How Lettria Unlocked 20% Accuracy Gains with Qdrant and Neo4j](https://qdrant.tech/blog/case-study-lettria-v2/)
-- [Design a Secure Multitenant RAG Inferencing Solution](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/secure-multitenant-rag)
-
-**Security Analysis:**
-- [JWT Vulnerabilities List: 2026 Security Risks & Mitigation Guide](https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide)
-- [Beyond the Secret: The Silent Risks of JWT and Machine Identity](https://medium.com/@instatunnel/beyond-the-secret-the-silent-risks-of-jwt-and-machine-identity-49bea4aa4547)
-
-**RAG Patterns:**
-- [RAG is not Agent Memory | Letta](https://www.letta.com/blog/rag-vs-agent-memory)
-- [A Systematic Review of RAG Systems (arxiv.org)](https://arxiv.org/html/2507.18910v1)
-- [23 RAG Pitfalls and How to Fix Them](https://www.nb-data.com/p/23-rag-pitfalls-and-how-to-fix-them)
-- [Why 73% of RAG Systems Fail in Production](https://mindtechharbour.medium.com/why-73-of-rag-systems-fail-in-production-and-how-to-build-one-that-actually-works-part-1-6a888af915fa)
-
-**Document Processing:**
-- [I Tested 7 Python PDF Extractors (2025 Edition)](https://dev.to/onlyoneaman/i-tested-7-python-pdf-extractors-so-you-dont-have-to-2025-edition-akm)
-- [Chunking Strategies to Improve Your RAG Performance](https://weaviate.io/blog/chunking-strategies-for-rag)
-
-**Memory Management:**
-- [Understanding Checkpointers, Databases, API Memory and TTL](https://support.langchain.com/articles/6253531756-understanding-checkpointers-databases-api-memory-and-ttl)
-- [Collaborative Memory: Multi-User Memory Sharing in LLM Agents](https://arxiv.org/html/2505.18279v1)
-
-### Tertiary (LOW confidence - needs validation)
-
-**Benchmarks (domain-dependent):**
-- OpenAI embedding accuracy improvements (54.9% vs 31.4% MIRACL score) - validated but domain-specific
-- Mem0 26% accuracy improvement - from research paper but needs validation in your domain
-- GraphRAG 20-25% accuracy gains - from case studies but workload-dependent
-- 73% RAG production failure rate - from blog post, treat as directional not precise
-
-**Emerging Patterns (2026):**
-- Semantic chunking 15-30% improvement - multiple sources agree but range is wide
-- Context pollution 20-30% degradation - Stanford research but specific to their test set
-- Vector-first + graph enrichment - established pattern but implementation varies
+### Tertiary (LOW confidence)
+- [8 Streamlit/Gradio Patterns to Demo AI - Medium](https://medium.com/@Nexumo_/8-streamlit-gradio-patterns-to-demo-ai-like-a-pro-f6a0c6114ff8) - Demo UI patterns for RAG apps
+- [RAG Based Conversational Chatbot Using Streamlit - Medium](https://medium.com/@mrcoffeeai/rag-based-conversational-chatbot-using-streamlit-364c4c02c2f1) - Chat UI patterns
+- [ScrapingAnt: Requests vs HTTPX](https://scrapingant.com/blog/requests-vs-httpx) - HTTP client performance comparison
+- [Oxylabs: HTTPX vs Requests vs AIOHTTP](https://oxylabs.io/blog/httpx-vs-requests-vs-aiohttp) - HTTP client benchmarks
 
 ---
-
-**Research completed:** 2026-02-04
-**Ready for roadmap:** Yes
-
-**Next steps for orchestrator:**
-1. Use phase structure from "Implications for Roadmap" as starting point
-2. Flag Phase 2 and Phase 4 for potential deeper research during roadmap planning
-3. Ensure requirements definition addresses critical pitfalls #1-5 in Phase 1-2
-4. Validate multi-tenant security patterns before Phase 2 implementation
-5. Plan checkpoint profiling and LangGraph testing for Phase 4
+*Research completed: 2026-02-05*
+*Ready for roadmap: yes*

@@ -1,921 +1,691 @@
-# Architecture Patterns: RAG with Graph + Vector Storage and Memory Management
+# Architecture Research: Streamlit Frontend Integration
 
-**Domain:** Document Q&A RAG System with Multi-User Memory
-**Researched:** 2026-02-04
+**Domain:** Streamlit multi-page app consuming FastAPI backend
+**Researched:** 2026-02-05
 **Confidence:** HIGH
-
-## Executive Summary
-
-RAG systems combining graph databases (Neo4j), vector stores (Qdrant), and memory management (Mem0) represent the 2026 production standard for enterprise document Q&A systems. This hybrid architecture achieves 20-25% accuracy improvements over pure vector solutions while maintaining sub-200ms retrieval latency. The architecture operates through three distinct layers: a document processing pipeline, a dual-storage retrieval system, and a memory-augmented generation layer.
 
 ## Recommended Architecture
 
-### High-Level System Design
+### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         FastAPI Application Layer                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │ Auth Service │  │ Session Mgmt │  │   Query Orchestrator     │  │
-│  │  (JWT/Anon)  │  │              │  │                          │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Document Processing Pipeline                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │   Ingestion  │→ │   Chunking   │→ │   Entity Extraction     │  │
-│  │ (PDF/DOCX)   │  │   (Semantic) │  │   (LLM-based)           │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
-│                                                ↓                     │
-│                              ┌─────────────────────────┐             │
-│                              │  Embedding Generation   │             │
-│                              │    (OpenAI/Local)       │             │
-│                              └─────────────────────────┘             │
-└─────────────────────────────────────────────────────────────────────┘
-                      ↓                           ↓
-        ┌─────────────────────────┐   ┌─────────────────────────┐
-        │   Neo4j Graph Store     │   │   Qdrant Vector Store   │
-        │                         │   │                         │
-        │  - Entities (nodes)     │   │  - Document chunks      │
-        │  - Relationships        │   │  - Vector embeddings    │
-        │  - Context expansion    │   │  - Semantic search      │
-        └─────────────────────────┘   └─────────────────────────┘
-                      ↓                           ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│                       Hybrid Retrieval Layer                         │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  1. Vector Search (Qdrant) → Top-K similar chunks + IDs     │   │
-│  │  2. Graph Expansion (Neo4j) → Relationship context          │   │
-│  │  3. Context Fusion → Combined enriched context              │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Memory Management Layer (Mem0)                  │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  User Memory: Preferences, context, conversation history    │   │
-│  │  Session Memory: Current interaction context                │   │
-│  │  Shared Memory: Collaborative knowledge (tenant-level)      │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                       │
-│     ┌──────────────────┐              ┌──────────────────┐          │
-│     │ Neo4j (Relations)│              │ Qdrant (Vectors) │          │
-│     │  Memory graph    │              │  Memory embeddings│         │
-│     └──────────────────┘              └──────────────────┘          │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│                   Generation Layer (LangChain + OpenAI)              │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  Context Assembly:                                           │   │
-│  │    - Retrieved document chunks                               │   │
-│  │    - Graph relationship context                              │   │
-│  │    - User memory & preferences                               │   │
-│  │    - Query + conversation history                            │   │
-│  │                                                               │   │
-│  │  LLM Response Generation → Answer synthesis                  │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-                      Memory Update Loop
-                  (Extract & persist new context)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Streamlit Frontend                               │
+│                         (Port 8501)                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 │
+│  │   app.py     │  │   pages/     │  │   utils/     │                 │
+│  │  (Entrypoint)│  │  (Pages)     │  │ (API Client) │                 │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                 │
+│         │                  │                 │                          │
+│         └──────────────────┴─────────────────┘                          │
+│                            │                                            │
+│                            │ HTTP/SSE Requests                          │
+│                            ↓                                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                        FastAPI Backend                                  │
+│                         (Port 8000)                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌──────┐│
+│  │ /auth  │  │ /docs  │  │ /query │  │/compare│  │/memory │  │/admin││
+│  └────┬───┘  └────┬───┘  └────┬───┘  └────┬───┘  └────┬───┘  └───┬──┘│
+│       │           │           │           │           │          │    │
+├───────┴───────────┴───────────┴───────────┴───────────┴──────────┴────┤
+│                        Data Layer                                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │  Neo4j   │  │  Qdrant  │  │  Redis   │  │PostgreSQL│               │
+│  │ (Graph)  │  │ (Vector) │  │(Sessions)│  │(Workflow)│               │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘               │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Component Boundaries
+### Component Responsibilities
 
-### 1. API Layer (FastAPI)
-**Responsibility:** HTTP request handling, authentication, session management, query orchestration
+| Component | Responsibility | Typical Implementation |
+|-----------|---------------|------------------------|
+| app.py (Entrypoint) | Navigation menu, auth state management, common layout | st.navigation(), session state init, dynamic page routing |
+| pages/*.py | Individual feature pages (login, docs, Q&A, etc.) | Streamlit UI components, calls to utils/api_client |
+| utils/api_client.py | Centralized API communication with backend | requests.Session with token management, SSE handling |
+| utils/auth.py | Authentication helpers (login, logout, check auth) | Token storage in session state, auth state helpers |
+| utils/components.py | Reusable UI components | Custom widgets, common layouts, error displays |
 
-**Communicates With:**
-- Document Processing Pipeline (file uploads)
-- Query Orchestrator (user queries)
-- Auth Service (JWT validation, anonymous sessions)
-- Mem0 SDK (memory operations)
+## Recommended Project Structure
 
-**Key Characteristics:**
-- Async/await for non-blocking I/O
-- Handles 1000+ concurrent users
-- Sub-2 second end-to-end latency target
-- JWT-based auth + anonymous session support
-- Per-tenant isolation at query time
-
-### 2. Document Processing Pipeline
-**Responsibility:** Ingestion, parsing, chunking, entity extraction, dual-storage indexing
-
-**Communicates With:**
-- Storage Layer (file system/S3)
-- LangChain Document Loaders
-- Embedding Service
-- Neo4j (entity/relationship writes)
-- Qdrant (vector writes)
-
-**Key Characteristics:**
-- Offline/async processing
-- Semantic chunking (not fixed-size)
-- LLM-based entity extraction for graph
-- Maintains document lineage and versioning
-- Multi-format support (PDF, DOCX, TXT)
-
-**Subcomponents:**
-- **Document Loader**: Format-specific parsers (PyPDF2, python-docx, Unstructured)
-- **Text Chunker**: Semantic chunking with overlap (LangChain RecursiveCharacterTextSplitter)
-- **Entity Extractor**: LLM prompts to identify entities and relationships
-- **Embedding Generator**: OpenAI embeddings API or local models
-- **Dual Indexer**: Parallel writes to Neo4j and Qdrant with shared IDs
-
-### 3. Neo4j Graph Store
-**Responsibility:** Structured knowledge, entity relationships, context expansion
-
-**Communicates With:**
-- Document Processing Pipeline (writes)
-- Hybrid Retrieval Layer (reads)
-- Mem0 SDK (memory relationship storage)
-
-**Key Characteristics:**
-- Stores entities as nodes with properties
-- Relationships as edges with metadata
-- Cypher queries for graph traversal
-- Multi-hop relationship expansion
-- Explainable retrieval paths
-
-**Schema Design:**
-```cypher
-// Document entities
-(:Entity {id: uuid, type: string, name: string, embedding_id: uuid})
-(:Document {id: uuid, title: string, user_id: string, tenant_id: string})
-(:Chunk {id: uuid, text: string, doc_id: uuid, position: int})
-
-// Relationships
-(Entity)-[:APPEARS_IN]->(Chunk)
-(Entity)-[:RELATES_TO {type: string, confidence: float}]->(Entity)
-(Chunk)-[:PART_OF]->(Document)
-(Document)-[:OWNED_BY]->(User)
+```
+frontend/
+├── app.py                    # Entrypoint with st.navigation
+├── pages/                    # Multi-page app pages
+│   ├── 01_login.py          # Login/register (anonymous or authenticated)
+│   ├── 02_documents.py      # Document upload, list, delete
+│   ├── 03_chat.py           # RAG Q&A with streaming
+│   ├── 04_comparison.py     # Document comparison
+│   ├── 05_memory.py         # Personal memory management
+│   └── 06_admin.py          # Admin-only shared knowledge (conditional)
+├── utils/                    # Business logic and API layer
+│   ├── __init__.py
+│   ├── api_client.py        # Centralized FastAPI client
+│   ├── auth.py              # Auth state management helpers
+│   ├── components.py        # Reusable UI components
+│   └── streaming.py         # SSE streaming helpers
+├── .streamlit/              # Streamlit configuration
+│   └── config.toml          # Theme, server settings
+├── requirements.txt         # Python dependencies
+└── README.md                # Setup instructions
 ```
 
-### 4. Qdrant Vector Store
-**Responsibility:** Dense vector embeddings, semantic similarity search
+### Structure Rationale
 
-**Communicates With:**
-- Document Processing Pipeline (writes)
-- Hybrid Retrieval Layer (reads)
-- Mem0 SDK (memory vector storage)
+- **app.py as frame:** Uses st.Page and st.navigation (preferred over pages/ directory) for maximum flexibility in conditional navigation based on auth state and roles
+- **Numbered page prefixes:** Following Streamlit convention (01_*, 02_*) for logical ordering and better autocomplete
+- **Centralized utils/:** Separates UI (pages) from business logic (utils), making code testable and maintainable
+- **api_client.py singleton:** Single source of truth for backend communication, handles auth headers consistently across all pages
 
-**Key Characteristics:**
-- Sub-200ms search latency
-- Handles 100M+ embeddings
-- Top-K nearest neighbor search
-- Metadata filtering for multi-tenancy
-- Payload includes chunk text, document ID, entity IDs
+## Architectural Patterns
 
-**Collection Schema:**
+### Pattern 1: Centralized API Client with Session State
+
+**What:** Single API client instance stored in st.session_state that manages authentication tokens and requests
+
+**When to use:** All API communication (this is the recommended approach)
+
+**Trade-offs:**
+- Pros: DRY, consistent auth header management, token refresh in one place
+- Cons: Session state resets on WebSocket disconnect (mitigated by st.query_params for token persistence)
+
+**Example:**
 ```python
-{
-    "vector": [float] * 1536,  # OpenAI embedding dimension
-    "payload": {
-        "chunk_id": "uuid",
-        "document_id": "uuid",
-        "entity_ids": ["uuid1", "uuid2"],
-        "user_id": "string",
-        "tenant_id": "string",
-        "text": "string",
-        "metadata": {}
-    }
-}
+# utils/api_client.py
+import requests
+from typing import Optional
+import streamlit as st
+
+class APIClient:
+    def __init__(self, base_url: str = "http://localhost:8000"):
+        self.base_url = base_url
+        self.session = requests.Session()
+
+    def set_auth_token(self, access_token: str):
+        """Set JWT in Authorization header"""
+        self.session.headers.update({
+            "Authorization": f"Bearer {access_token}"
+        })
+
+    def clear_auth(self):
+        """Remove auth headers"""
+        self.session.headers.pop("Authorization", None)
+
+    def post(self, endpoint: str, **kwargs):
+        """POST request with error handling"""
+        try:
+            response = self.session.post(
+                f"{self.base_url}{endpoint}",
+                **kwargs
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            st.error(f"API Error: {e.response.json().get('detail', str(e))}")
+            return None
+
+# Initialize in app.py
+if 'api_client' not in st.session_state:
+    st.session_state.api_client = APIClient()
 ```
 
-### 5. Hybrid Retrieval Layer
-**Responsibility:** Orchestrates dual-database queries, context fusion
+### Pattern 2: Dynamic Navigation Based on Auth State
 
-**Communicates With:**
-- Qdrant (vector search)
-- Neo4j (graph expansion)
-- Memory Layer (user context retrieval)
-- LLM Generation Layer (context delivery)
+**What:** Build navigation menu dynamically using st.navigation with conditional page visibility based on user role
 
-**Key Characteristics:**
-- Vector-first retrieval strategy
-- Graph expansion for top-K results
-- Shared ID linkage between databases
-- Context ranking and deduplication
-- Query-time tenant filtering
+**When to use:** Multi-page apps with authentication and role-based access control
 
-**Retrieval Flow:**
+**Trade-offs:**
+- Pros: Native Streamlit feature, clean UX, enforces access control at navigation level
+- Cons: Must rebuild page dictionary on every rerun (minimal overhead)
+
+**Example:**
 ```python
-1. Query Embedding → OpenAI API
-2. Vector Search → Qdrant top-K (typically 10-20 chunks)
-3. Extract Entity IDs → From Qdrant payload
-4. Graph Query → Neo4j Cypher:
-   MATCH (e:Entity)-[r]-(related)
-   WHERE e.id IN $entity_ids
-   RETURN e, r, related
-5. Context Fusion → Merge chunk text + graph context
-6. Ranking → Relevance scoring + deduplication
-7. Return → Enriched context for LLM
+# app.py
+import streamlit as st
+
+# Initialize auth state
+if 'role' not in st.session_state:
+    st.session_state.role = None  # None = not logged in, 'user' or 'admin'
+
+# Define all possible pages
+login_page = st.Page("pages/01_login.py", title="Login", icon="🔐")
+documents_page = st.Page("pages/02_documents.py", title="Documents", icon="📄")
+chat_page = st.Page("pages/03_chat.py", title="Chat", icon="💬")
+comparison_page = st.Page("pages/04_comparison.py", title="Compare", icon="🔍")
+memory_page = st.Page("pages/05_memory.py", title="Memory", icon="🧠")
+admin_page = st.Page("pages/06_admin.py", title="Admin", icon="⚙️")
+
+# Build page dictionary based on role
+page_dict = {}
+
+if st.session_state.role is None:
+    # Not logged in - show only login
+    page_dict["Account"] = [login_page]
+else:
+    # Logged in - show main features
+    page_dict["Account"] = [login_page]  # For logout
+    page_dict["Features"] = [documents_page, chat_page, comparison_page, memory_page]
+
+    # Admin-only pages
+    if st.session_state.role == "admin":
+        page_dict["Admin"] = [admin_page]
+
+# Create navigation and run
+pg = st.navigation(page_dict)
+pg.run()
 ```
 
-### 6. Memory Management Layer (Mem0)
-**Responsibility:** Persistent user context, preferences, conversation history
+### Pattern 3: Token Persistence Across Reloads
 
-**Communicates With:**
-- Neo4j (memory relationship graph)
-- Qdrant (memory embeddings)
-- LLM Generation Layer (context injection & extraction)
-- API Layer (user/session isolation)
+**What:** Combine st.session_state (for runtime) with st.query_params (for reload persistence) to maintain authentication
 
-**Key Characteristics:**
-- Three-tier memory: User, Session, Shared
-- Automatic extraction from conversations
-- 91% lower response time vs full-context
-- ~10% accuracy improvement over RAG alone
-- Dynamic memory updates and contradiction resolution
+**When to use:** Production apps where users expect to stay logged in across page refreshes
 
-**Memory Architecture:**
+**Trade-offs:**
+- Pros: Better UX, tokens survive WebSocket reconnection
+- Cons: Tokens visible in URL (use short-lived tokens + refresh pattern), cleared on multi-page navigation
+
+**Example:**
 ```python
-# User Memory (Private)
-{
-    "user_id": "uuid",
-    "memories": [
-        {"content": "prefers technical details", "created_at": ts},
-        {"content": "works in healthcare domain", "created_at": ts}
-    ]
-}
+# utils/auth.py
+import streamlit as st
+from datetime import datetime, timedelta
 
-# Session Memory (Temporary)
-{
-    "session_id": "uuid",
-    "context": ["discussing document X", "comparing with doc Y"]
-}
+def init_auth_state():
+    """Initialize auth state from query params or session state"""
+    # Check query params first (persists across reload)
+    if 'token' in st.query_params and 'access_token' not in st.session_state:
+        # Restore from URL
+        st.session_state.access_token = st.query_params['token']
+        st.session_state.role = st.query_params.get('role', 'user')
+        # Update API client
+        st.session_state.api_client.set_auth_token(st.session_state.access_token)
 
-# Shared Memory (Tenant/Team)
-{
-    "tenant_id": "uuid",
-    "shared_knowledge": ["company policies", "domain glossary"]
-}
+    # Validate token hasn't expired (check expiry stored in session state)
+    if 'token_expiry' in st.session_state:
+        if datetime.now() > st.session_state.token_expiry:
+            logout()
+
+def login(access_token: str, refresh_token: str, role: str = "user"):
+    """Store auth tokens and update UI state"""
+    st.session_state.access_token = access_token
+    st.session_state.refresh_token = refresh_token
+    st.session_state.role = role
+    st.session_state.token_expiry = datetime.now() + timedelta(minutes=15)
+
+    # Persist in query params for reload
+    st.query_params['token'] = access_token
+    st.query_params['role'] = role
+
+    # Update API client
+    st.session_state.api_client.set_auth_token(access_token)
+
+    st.rerun()  # Rebuild navigation
+
+def logout():
+    """Clear auth state"""
+    # Clear session state
+    st.session_state.pop('access_token', None)
+    st.session_state.pop('refresh_token', None)
+    st.session_state.pop('role', None)
+    st.session_state.pop('token_expiry', None)
+
+    # Clear query params
+    st.query_params.clear()
+
+    # Clear API client auth
+    st.session_state.api_client.clear_auth()
+
+    st.rerun()
 ```
 
-### 7. LLM Generation Layer (LangChain + OpenAI)
-**Responsibility:** Context assembly, prompt engineering, response generation
+### Pattern 4: SSE Streaming with st.write_stream
 
-**Communicates With:**
-- Hybrid Retrieval Layer (document context)
-- Memory Layer (user context)
-- OpenAI API (LLM inference)
-- Memory Layer (post-response memory update)
+**What:** Consume FastAPI SSE (Server-Sent Events) endpoints using st.write_stream for typewriter-effect responses
 
-**Key Characteristics:**
-- LangChain orchestration
-- Structured prompts with guardrails
-- Streaming responses for UX
-- Fallback to "I don't know" when insufficient context
-- Post-generation memory extraction
+**When to use:** Real-time streaming responses (LLM generation, document processing progress)
 
-**Context Assembly:**
+**Trade-offs:**
+- Pros: Native Streamlit support, smooth UX, works with OpenAI-style streams
+- Cons: Requires wrapper generator for custom SSE formats
+
+**Example:**
 ```python
-prompt_template = f"""
-You are a document Q&A assistant with memory of user preferences.
+# utils/streaming.py
+import requests
+import json
+from typing import Generator
 
-User Context:
-{mem0_user_memory}
+def stream_query_response(api_client, query: str) -> Generator[str, None, None]:
+    """Generator that yields chunks from FastAPI SSE endpoint"""
+    response = api_client.session.post(
+        f"{api_client.base_url}/api/v1/query/stream",
+        json={"query": query},
+        stream=True,
+        headers={"Accept": "text/event-stream"}
+    )
 
-Retrieved Document Context:
-{qdrant_chunks}
+    for line in response.iter_lines():
+        if line:
+            decoded = line.decode('utf-8')
+            # SSE format: "data: {json}\n\n"
+            if decoded.startswith('data: '):
+                data = json.loads(decoded[6:])
+                if 'chunk' in data:
+                    yield data['chunk']
 
-Relationship Context:
-{neo4j_graph_context}
+# In pages/03_chat.py
+import streamlit as st
+from utils.streaming import stream_query_response
 
-User Query: {query}
+st.title("💬 Chat with Documents")
 
-Instructions:
-- Answer based ONLY on provided context
-- If context is insufficient, respond "I don't know"
-- Consider user preferences in response style
-- Cite document sources
-"""
+query = st.text_input("Ask a question:")
+if st.button("Send") and query:
+    # Stream response with typewriter effect
+    response = st.write_stream(
+        stream_query_response(st.session_state.api_client, query)
+    )
+
+    # Response is accumulated string, can store in history
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": response
+    })
+```
+
+### Pattern 5: Progress Tracking for Document Upload
+
+**What:** Poll backend task status endpoint and display progress using st.progress and st.status
+
+**When to use:** Long-running background tasks (document processing, comparison workflows)
+
+**Trade-offs:**
+- Pros: Native progress UI, good UX feedback
+- Cons: Polling overhead (mitigate with reasonable intervals)
+
+**Example:**
+```python
+# In pages/02_documents.py
+import streamlit as st
+import time
+
+uploaded_file = st.file_uploader("Upload document", type=["pdf", "docx"])
+if uploaded_file:
+    # Upload file
+    files = {"file": (uploaded_file.name, uploaded_file, uploaded_file.type)}
+    response = st.session_state.api_client.post("/api/v1/documents/upload", files=files)
+
+    if response:
+        task_id = response['task_id']
+
+        # Poll for status with progress bar
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        while True:
+            status_response = st.session_state.api_client.get(
+                f"/api/v1/documents/{task_id}/status"
+            )
+
+            if status_response:
+                progress = status_response['progress']
+                stage = status_response['stage']
+
+                progress_bar.progress(progress / 100)
+                status_text.text(f"Status: {stage}")
+
+                if status_response['status'] == 'completed':
+                    st.success("Document processed successfully!")
+                    break
+                elif status_response['status'] == 'failed':
+                    st.error(f"Processing failed: {status_response.get('error')}")
+                    break
+
+            time.sleep(1)  # Poll every second
 ```
 
 ## Data Flow
 
-### Indexing Flow (Offline)
+### Authentication Flow
 
 ```
-Document Upload (PDF/DOCX)
-    ↓
-Parse & Extract Text
-    ↓
-Semantic Chunking (overlap)
-    ↓
-┌─────────────────┴─────────────────┐
-│                                   │
-Entity Extraction (LLM)         Generate Embeddings
-    ↓                              ↓
-Neo4j Graph Write            Qdrant Vector Write
-    ↓                              ↓
-Store: Entities,             Store: Vectors + Metadata
-Relations, Chunks            (with shared chunk IDs)
-    ↓                              ↓
-└─────────────────┬─────────────────┘
-                  ↓
-         Index Complete
-   (Ready for retrieval)
+User (Streamlit) → POST /api/v1/auth/login → FastAPI
+                 ← {access_token, refresh_token}
+
+Store in st.session_state:
+- access_token (for API calls)
+- refresh_token (for token renewal)
+- role (for navigation)
+
+Update st.query_params:
+- token=<access_token>
+- role=<role>
+
+Set API client Authorization header:
+- Authorization: Bearer <access_token>
+
+Call st.rerun() → Rebuild navigation with new role
 ```
 
-### Query Flow (Online)
+### Query Flow with Streaming
 
 ```
-User Query + Auth Token
-    ↓
-Validate Session/JWT
-    ↓
-┌─────────────────┴─────────────────┐
-│                                   │
-Generate Query Embedding      Load User Memory (Mem0)
-    ↓                              ↓
-Qdrant Vector Search          Memory Context
-(top-K chunks + entity IDs)       ↓
-    ↓                              ↓
-Extract Entity IDs            ┌────┘
-    ↓                         │
-Neo4j Graph Expansion         │
-(relationships + context)     │
-    ↓                         │
-└─────────────────┬───────────┘
-                  ↓
-         Context Fusion
-    (Documents + Graph + Memory)
-                  ↓
-         LLM Prompt Assembly
-                  ↓
-         OpenAI API Call
-                  ↓
-         Response Generation
-                  ↓
-┌─────────────────┴─────────────────┐
-│                                   │
-Return to User              Extract New Memories
-                                   ↓
-                            Update Mem0 Storage
+User types query → pages/03_chat.py
+                 ↓
+utils/streaming.stream_query_response()
+                 ↓
+POST /api/v1/query/stream (SSE)
+                 ↓
+FastAPI streams chunks → Generator yields chunks
+                 ↓
+st.write_stream() → Typewriter display
+                 ↓
+Store final response in st.session_state.messages
 ```
 
-### Memory Update Flow
+### Document Upload Flow
 
 ```
-LLM Response + Conversation
-    ↓
-Mem0 Memory Extraction
-(LLM extracts salient facts)
-    ↓
-┌─────────────────┴─────────────────┐
-│                                   │
-Update User Memory           Update Shared Memory
-    ↓                              ↓
-Neo4j Memory Graph           Qdrant Memory Vectors
-    ↓                              ↓
-└─────────────────┬─────────────────┘
+User uploads file → pages/02_documents.py
                   ↓
-         Memory Updated
-   (Available for next query)
+POST /api/v1/documents/upload
+                  ↓
+FastAPI returns {task_id}
+                  ↓
+Poll GET /api/v1/documents/{task_id}/status
+                  ↓
+Update st.progress() based on status
+                  ↓
+On completion → Refresh document list
 ```
 
-## Architecture Patterns to Follow
+### Key Data Flows
 
-### Pattern 1: Vector-First, Graph-Enriched Retrieval
-**What:** Use Qdrant for fast semantic search, then expand with Neo4j relationships
+1. **Auth State Propagation:** Login → session_state → query_params → API client → All pages
+2. **Role-Based Navigation:** session_state.role → page_dict building → st.navigation → Visible pages
+3. **API Token Management:** session_state.access_token → API client headers → All backend requests
 
-**When:** All document retrieval queries
+## Scaling Considerations
 
-**Why:** Combines breadth (vector search) with depth (graph relationships)
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 1-10 users | Current architecture sufficient; single Streamlit instance with direct backend calls |
+| 10-100 users | Add connection pooling in api_client.py; consider caching frequently accessed data with @st.cache_data |
+| 100-1000 users | Deploy multiple Streamlit instances behind load balancer; use st.cache_resource for shared connections; implement request timeout handling |
+| 1000+ users | Consider Streamlit Community Cloud or containerized deployment; optimize with component-level caching; add CDN for static assets |
 
-**Example:**
+### Scaling Priorities
+
+1. **First bottleneck:** Session state memory usage with many concurrent users
+   - **Fix:** Use st.cache_resource for shared objects (API client can be global), limit session state to user-specific data only
+
+2. **Second bottleneck:** SSE connection limits
+   - **Fix:** Implement connection pooling, add timeout handling, consider WebSocket alternative for high-concurrency scenarios
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Per-Page API Client Creation
+
+**What people do:** Create new API client instance in each page file
+
 ```python
-# Step 1: Vector search
-vector_results = qdrant_client.search(
-    collection_name="documents",
-    query_vector=embedding,
-    limit=10,
-    query_filter={
-        "must": [{"key": "tenant_id", "match": {"value": tenant_id}}]
+# BAD: In every page
+import requests
+response = requests.post("http://localhost:8000/api/v1/query", ...)
+```
+
+**Why it's wrong:**
+- No centralized auth header management
+- Token updates require changes in multiple files
+- Cannot reuse connections (performance hit)
+- Inconsistent error handling
+
+**Do this instead:** Use centralized api_client from session state
+
+```python
+# GOOD: In every page
+response = st.session_state.api_client.post("/api/v1/query", ...)
+```
+
+### Anti-Pattern 2: Storing Sensitive Tokens in Query Params Long-Term
+
+**What people do:** Keep full JWT in URL indefinitely via st.query_params
+
+**Why it's wrong:**
+- Tokens visible in browser history and server logs
+- URL sharing exposes credentials
+- XSS vulnerability if tokens are long-lived
+
+**Do this instead:** Use query params only for initial load, then clear; rely on session state during session; use short-lived access tokens with refresh token pattern
+
+```python
+# GOOD
+def init_auth_state():
+    if 'token' in st.query_params and 'access_token' not in st.session_state:
+        st.session_state.access_token = st.query_params['token']
+        st.query_params.clear()  # Clear immediately after reading
+```
+
+### Anti-Pattern 3: Using pages/ Directory for Complex Auth
+
+**What people do:** Use automatic pages/ directory with auth checks inside each page
+
+**Why it's wrong:**
+- Pages appear in navigation even when user shouldn't access them
+- Requires duplicate auth checks in every page
+- Poor UX (users see pages they can't use)
+
+**Do this instead:** Use st.navigation with dynamic page building
+
+```python
+# GOOD: Only show pages user can access
+page_dict = {}
+if st.session_state.role == "admin":
+    page_dict["Admin"] = [admin_page]
+# Page never appears for non-admin users
+```
+
+### Anti-Pattern 4: Polling Without Debouncing
+
+**What people do:** Poll status endpoints in tight loop without rate limiting
+
+```python
+# BAD
+while True:
+    check_status()
+    # No delay - hammers backend
+```
+
+**Why it's wrong:**
+- Unnecessary backend load
+- Poor user experience (constant UI updates)
+- Can hit rate limits
+
+**Do this instead:** Use reasonable polling intervals with time.sleep()
+
+```python
+# GOOD
+while not complete:
+    status = check_status()
+    time.sleep(2)  # Poll every 2 seconds
+```
+
+### Anti-Pattern 5: Session State for Global Config
+
+**What people do:** Store API base URL, app settings in st.session_state
+
+**Why it's wrong:**
+- Session state is per-user (wasteful for shared config)
+- Duplicated across all sessions
+- Doesn't persist across WebSocket reconnects
+
+**Do this instead:** Use module-level constants or st.cache_resource for shared config
+
+```python
+# GOOD
+# config.py
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+
+@st.cache_resource
+def get_shared_config():
+    return {
+        "api_url": API_BASE_URL,
+        "theme": "dark"
     }
-)
-
-# Step 2: Extract entity IDs
-entity_ids = [
-    eid for result in vector_results
-    for eid in result.payload["entity_ids"]
-]
-
-# Step 3: Graph expansion
-graph_context = neo4j_driver.execute_query("""
-    MATCH (e:Entity)-[r]-(related)
-    WHERE e.id IN $entity_ids
-    RETURN e.name, type(r), related.name, r.metadata
-    """, entity_ids=entity_ids
-)
-
-# Step 4: Fuse contexts
-enriched_context = fuse_vector_and_graph(vector_results, graph_context)
 ```
 
-### Pattern 2: Shared ID Linkage
-**What:** Use identical UUIDs in both Neo4j and Qdrant to enable cross-referencing
-
-**When:** During document indexing and retrieval
-
-**Why:** Enables efficient lookup without data duplication
-
-**Example:**
-```python
-chunk_id = uuid.uuid4()
-
-# Write to Qdrant with ID
-qdrant_client.upsert(
-    collection_name="documents",
-    points=[{
-        "id": str(chunk_id),
-        "vector": embedding,
-        "payload": {
-            "chunk_id": str(chunk_id),
-            "entity_ids": entity_ids,
-            "text": chunk_text
-        }
-    }]
-)
-
-# Write to Neo4j with same ID
-neo4j_driver.execute_query("""
-    CREATE (c:Chunk {
-        id: $chunk_id,
-        text: $text
-    })
-    """, chunk_id=str(chunk_id), text=chunk_text
-)
-```
-
-### Pattern 3: Three-Tier Memory Isolation
-**What:** Separate user-private, session-temporary, and tenant-shared memory
-
-**When:** All memory operations
-
-**Why:** Balances personalization, security, and collaborative knowledge
-
-**Example:**
-```python
-# User memory (private)
-mem0.add_memory(
-    messages=[{"role": "user", "content": query}],
-    user_id=user_id,
-    metadata={"type": "private"}
-)
-
-# Session memory (temporary)
-mem0.add_memory(
-    messages=[{"role": "user", "content": query}],
-    session_id=session_id,
-    metadata={"type": "session", "ttl": 3600}
-)
-
-# Shared memory (tenant-level)
-mem0.add_memory(
-    messages=[{"role": "user", "content": domain_knowledge}],
-    tenant_id=tenant_id,
-    metadata={"type": "shared"}
-)
-
-# Retrieval respects boundaries
-memories = mem0.search(
-    query=query,
-    user_id=user_id,  # Only private + shared for this user
-    tenant_id=tenant_id
-)
-```
-
-### Pattern 4: Semantic Chunking
-**What:** Chunk documents by semantic boundaries, not fixed character counts
-
-**When:** Document processing
-
-**Why:** Improves retrieval accuracy by 15-30% over fixed chunking
-
-**Example:**
-```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-# Semantic chunking with overlap
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200,
-    separators=["\n\n", "\n", ". ", " ", ""],
-    length_function=len
-)
-
-chunks = splitter.split_documents(documents)
-```
-
-### Pattern 5: Query-Time Tenant Filtering
-**What:** Filter by tenant_id at query time, not separate databases
-
-**When:** Multi-tenant retrieval
+## Integration Points
+
+### Backend API Integration
+
+| Backend Endpoint | Frontend Integration Pattern | Notes |
+|------------------|------------------------------|-------|
+| POST /api/v1/auth/login | api_client.post() → store tokens in session_state | Use OAuth2PasswordRequestForm format (username, password) |
+| POST /api/v1/auth/register | api_client.post() → auto-login with returned tokens | Migrate anonymous session if exists |
+| POST /api/v1/documents/upload | multipart/form-data file upload → poll status | Use st.file_uploader for file, then api_client.post with files= |
+| GET /api/v1/documents | api_client.get() → display in st.dataframe or st.table | Cache with @st.cache_data(ttl=60) for performance |
+| DELETE /api/v1/documents/{id} | api_client.delete() → refresh list | Show confirmation dialog with st.dialog |
+| POST /api/v1/query/stream | SSE streaming → st.write_stream | Use utils/streaming.py generator wrapper |
+| POST /api/v1/compare | api_client.post() → display results | Long-running, consider polling status similar to upload |
+| GET /api/v1/memory/personal | api_client.get() → display memories | Show in expandable sections with st.expander |
+| POST /api/v1/memory/personal | api_client.post() → add memory | Simple form with st.text_input |
+| GET /api/v1/admin/shared-memory | api_client.get() → admin page only | Check role before showing page |
+| POST /api/v1/admin/shared-memory | api_client.post() → admin page only | Restrict via navigation, double-check on backend |
+
+### Session Management
+
+| Requirement | Implementation | Notes |
+|-------------|----------------|-------|
+| Persist auth across page nav | st.session_state + st.query_params | Query params cleared on multi-page navigation (Streamlit limitation) |
+| Anonymous sessions | Cookie-based session ID from backend → store in session_state | Backend returns anon_session_id in response |
+| Refresh token rotation | Store refresh_token in session_state → call /refresh before access_token expires | Implement token expiry check in api_client |
+| Role-based UI | st.session_state.role → conditional page building | Update role on login/register response |
+
+## Build Order (Dependency-Based)
+
+### Wave 1: Foundation (Start here)
+**Goal:** Basic app structure, auth, API client
+
+1. **Setup project structure** (app.py, utils/, pages/, requirements.txt)
+   - Install dependencies: streamlit, requests, python-dotenv
+   - Create .streamlit/config.toml for theme
+
+2. **Build utils/api_client.py** (centralized backend communication)
+   - APIClient class with requests.Session
+   - Methods: post(), get(), delete(), set_auth_token(), clear_auth()
+
+3. **Build utils/auth.py** (auth state helpers)
+   - init_auth_state(), login(), logout()
+   - Session state initialization
+
+4. **Build pages/01_login.py** (login/register page)
+   - Login form → POST /api/v1/auth/login
+   - Register form → POST /api/v1/auth/register
+   - Anonymous session support (backend handles)
+
+5. **Build app.py** (navigation entrypoint)
+   - Initialize session state (api_client, auth state)
+   - Dynamic navigation with role-based page building
+   - Run navigation
+
+**Deliverable:** Users can login/register, navigation menu appears
+
+### Wave 2: Core Features (Documents + Chat)
+**Goal:** Main user-facing functionality
+
+6. **Build pages/02_documents.py** (document management)
+   - File uploader → POST /api/v1/documents/upload
+   - Progress polling → GET /api/v1/documents/{task_id}/status
+   - Document list → GET /api/v1/documents
+   - Delete button → DELETE /api/v1/documents/{id}
+
+7. **Build utils/streaming.py** (SSE stream helpers)
+   - stream_query_response() generator wrapper
+
+8. **Build pages/03_chat.py** (RAG Q&A)
+   - Query input → POST /api/v1/query/stream (SSE)
+   - st.write_stream for typewriter effect
+   - Display citations with st.expander
+   - Conversation history in session state
+
+**Deliverable:** Users can upload docs, ask questions, see streaming responses
+
+### Wave 3: Advanced Features (Comparison + Memory)
+**Goal:** Differentiation features
+
+9. **Build pages/04_comparison.py** (document comparison)
+   - Multi-select documents → POST /api/v1/compare
+   - Display comparison results with citations
+   - Handle long-running comparison (progress indicator)
+
+10. **Build pages/05_memory.py** (personal memory)
+    - List memories → GET /api/v1/memory/personal
+    - Add memory form → POST /api/v1/memory/personal
+    - Display in organized sections
+
+**Deliverable:** Users can compare docs, manage personal memory
+
+### Wave 4: Admin Features (Conditional)
+**Goal:** Admin-only shared knowledge
+
+11. **Build pages/06_admin.py** (admin panel)
+    - Conditional in navigation (only if role=admin)
+    - Shared memory management → GET/POST /api/v1/admin/shared-memory
+    - Display shared knowledge facts
+
+**Deliverable:** Admins can manage shared knowledge base
+
+### Wave 5: Polish (UX enhancements)
+**Goal:** Production-ready UX
 
-**Why:** Cost-effective scaling while maintaining data isolation
+12. **Build utils/components.py** (reusable UI components)
+    - error_display(), success_display()
+    - citation_card(), document_card()
+    - loading_spinner()
 
-**Example:**
-```python
-# Qdrant filter
-results = qdrant_client.search(
-    collection_name="documents",
-    query_vector=embedding,
-    query_filter={
-        "must": [
-            {"key": "tenant_id", "match": {"value": tenant_id}},
-            {"key": "user_id", "match": {"any": [user_id, "public"]}}
-        ]
-    }
-)
+13. **Add error handling** (throughout)
+    - api_client error responses → st.error displays
+    - Network failures → retry logic or user guidance
+    - Token refresh on 401 responses
 
-# Neo4j constraint
-graph_results = neo4j_driver.execute_query("""
-    MATCH (e:Entity)-[r]-(related)
-    WHERE e.id IN $entity_ids
-      AND e.tenant_id = $tenant_id
-    RETURN e, r, related
-    """, entity_ids=ids, tenant_id=tenant_id
-)
-```
+14. **Add caching** (performance optimization)
+    - @st.cache_data for document lists
+    - @st.cache_resource for API client
+    - Session-scoped caching where appropriate
 
-### Pattern 6: Async Document Processing
-**What:** Decouple indexing from API requests using background tasks
-
-**When:** Document uploads
-
-**Why:** Maintains API responsiveness for large documents
-
-**Example:**
-```python
-from fastapi import BackgroundTasks
-
-@app.post("/documents/upload")
-async def upload_document(
-    file: UploadFile,
-    background_tasks: BackgroundTasks
-):
-    # Save file
-    file_path = await save_upload(file)
-
-    # Queue processing
-    background_tasks.add_task(
-        process_document_pipeline,
-        file_path=file_path,
-        user_id=current_user.id,
-        tenant_id=current_user.tenant_id
-    )
-
-    return {"status": "processing", "document_id": doc_id}
-```
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Fixed-Size Chunking
-**What:** Using fixed character counts (e.g., 500 chars) to split documents
-
-**Why bad:** Breaks semantic units, poor retrieval accuracy
-
-**Instead:** Use semantic chunking with RecursiveCharacterTextSplitter
-
-**Impact:** 15-30% accuracy degradation
-
-### Anti-Pattern 2: Vector-Only Retrieval
-**What:** Using only Qdrant without graph enrichment
-
-**Why bad:** Misses relationship context, lower accuracy
-
-**Instead:** Implement hybrid vector-graph retrieval
-
-**Impact:** 20-25% accuracy loss vs hybrid
-
-### Anti-Pattern 3: General-Purpose Embeddings for Specialized Domains
-**What:** Using OpenAI embeddings without domain fine-tuning
-
-**Why bad:** Poor performance on domain-specific terminology
-
-**Instead:** Fine-tune embeddings on domain corpus or use domain-specific models
-
-**Impact:** Significant degradation in specialized domains (medical, legal, etc.)
-
-### Anti-Pattern 4: Stateless LLM Context (No Memory)
-**What:** Treating each query independently without user memory
-
-**Why bad:** Repetitive responses, no personalization
-
-**Instead:** Integrate Mem0 for persistent context
-
-**Impact:** 10% accuracy loss, poor UX
-
-### Anti-Pattern 5: Single-Database Per Tenant
-**What:** Creating separate Neo4j/Qdrant instances per tenant
-
-**Why bad:** Massive operational overhead, high costs
-
-**Instead:** Use query-time filtering with logical tenant separation
-
-**Impact:** 10-100x infrastructure costs
-
-### Anti-Pattern 6: Synchronous Document Processing
-**What:** Processing documents inline during API requests
-
-**Why bad:** Timeout errors, poor UX for large files
-
-**Instead:** Use background tasks or async job queues
-
-**Impact:** API timeouts, degraded user experience
-
-### Anti-Pattern 7: No Monitoring or Observability
-**What:** Running production RAG without instrumentation
-
-**Why bad:** Cannot debug retrieval failures or optimize performance
-
-**Instead:** Implement logging, metrics, and tracing (e.g., LangSmith, Prometheus)
-
-**Impact:** 73% production failure rate without observability
-
-### Anti-Pattern 8: Open-Ended Prompts
-**What:** Allowing LLM to hallucinate without guardrails
-
-**Why bad:** Generates confident but incorrect answers
-
-**Instead:** Strict system prompts with "I don't know" fallback
-
-**Example Bad:**
-```python
-prompt = f"Answer this: {query}"
-```
-
-**Example Good:**
-```python
-prompt = f"""
-Answer ONLY using the provided context.
-If context is insufficient, respond: "I don't know."
-Context: {context}
-Query: {query}
-"""
-```
-
-## Build Order and Dependencies
-
-### Phase 1: Foundation (Weeks 1-2)
-**What to Build:**
-1. FastAPI project structure
-2. Authentication service (JWT + anonymous)
-3. Database connections (Neo4j, Qdrant)
-4. Basic document upload endpoint
-
-**Dependencies:** None
-
-**Rationale:** Authentication and database infrastructure are prerequisites for all other components
-
-**Validation:**
-- JWT tokens generated and validated
-- Can connect to Neo4j and Qdrant
-- File uploads saved to storage
-
-### Phase 2: Document Processing Pipeline (Weeks 3-4)
-**What to Build:**
-1. Document parsers (PDF, DOCX)
-2. Semantic chunking
-3. Embedding generation
-4. Dual-write to Neo4j + Qdrant
-
-**Dependencies:** Phase 1 (database connections, file storage)
-
-**Rationale:** Need indexed documents before retrieval works
-
-**Validation:**
-- Documents parsed correctly
-- Chunks created with overlap
-- Embeddings stored in Qdrant
-- Nodes/relationships in Neo4j
-
-### Phase 3: Basic Retrieval (Week 5)
-**What to Build:**
-1. Vector search in Qdrant
-2. Graph expansion in Neo4j
-3. Context fusion logic
-4. Simple Q&A endpoint
-
-**Dependencies:** Phase 2 (indexed documents)
-
-**Rationale:** Validate hybrid retrieval before adding complexity
-
-**Validation:**
-- Queries return relevant chunks
-- Graph relationships enhance context
-- Answers cite document sources
-
-### Phase 4: Memory Integration (Week 6)
-**What to Build:**
-1. Mem0 SDK configuration
-2. Memory extraction from conversations
-3. Memory injection into prompts
-4. Three-tier memory (user/session/shared)
-
-**Dependencies:** Phase 3 (working Q&A)
-
-**Rationale:** Memory layer sits on top of retrieval
-
-**Validation:**
-- User preferences persist across sessions
-- Responses personalized based on memory
-- Shared knowledge accessible to team
-
-### Phase 5: Multi-User Features (Week 7)
-**What to Build:**
-1. Tenant isolation (query-time filtering)
-2. Document permissions
-3. Shared memory spaces
-4. User-specific document collections
-
-**Dependencies:** Phase 4 (memory + retrieval working)
-
-**Rationale:** Multi-tenancy requires all core features operational
-
-**Validation:**
-- Users only see their documents
-- Shared memory accessible to tenant
-- Private memory isolated per user
-
-### Phase 6: Advanced Features (Weeks 8-10)
-**What to Build:**
-1. Document comparison
-2. Document summaries
-3. Conversation history
-4. Advanced query routing
-
-**Dependencies:** Phase 5 (multi-user operational)
-
-**Rationale:** Value-added features build on solid foundation
-
-**Validation:**
-- Can compare 2+ documents
-- Summaries accurate and concise
-- History persisted and retrievable
-
-### Phase 7: Production Hardening (Weeks 11-12)
-**What to Build:**
-1. Observability (logging, metrics, tracing)
-2. Error handling and fallbacks
-3. Performance optimization
-4. Load testing
-
-**Dependencies:** Phase 6 (all features built)
-
-**Rationale:** Production-readiness is final step
-
-**Validation:**
-- Sub-2 second latency at scale
-- Errors logged and recoverable
-- System handles 1000+ concurrent users
-
-## Critical Dependencies
-
-### Sequential Dependencies
-These MUST be built in order:
-
-1. **Auth → Everything:** All components need user/tenant context
-2. **Databases → Processing:** Cannot index without storage
-3. **Processing → Retrieval:** Cannot retrieve without indexed data
-4. **Retrieval → Memory:** Memory augments working retrieval
-5. **Core Features → Multi-User:** Tenant isolation requires working features
-6. **All Features → Production Hardening:** Cannot optimize what doesn't exist
-
-### Parallel Opportunities
-These CAN be built simultaneously:
-
-- **Document parsers + Embedding service** (independent tasks)
-- **Neo4j schema + Qdrant collections** (different databases)
-- **API endpoints + Background tasks** (different layers)
-- **Logging + Metrics** (independent observability concerns)
-
-### Technology Prerequisites
-Install/configure BEFORE starting each phase:
-
-**Phase 1:**
-- FastAPI, Uvicorn
-- Neo4j database (local or cloud)
-- Qdrant database (local or cloud)
-- JWT library (python-jose)
-
-**Phase 2:**
-- LangChain
-- Document parsers (PyPDF2, python-docx, Unstructured)
-- OpenAI API key
-
-**Phase 4:**
-- Mem0 SDK
-- Mem0 API key or self-hosted
-
-**Phase 7:**
-- LangSmith (optional, for tracing)
-- Prometheus + Grafana (metrics)
-- Structured logging library (structlog)
-
-## Scalability Considerations
-
-| Concern | At 100 users | At 10K users | At 1M users |
-|---------|-------------|--------------|-------------|
-| **Qdrant** | Single node | Horizontal scaling | Sharded clusters |
-| **Neo4j** | Single instance | Read replicas | Enterprise cluster |
-| **Mem0** | Embedded mode | API service | Distributed deployment |
-| **API** | Single FastAPI instance | Load-balanced replicas | Multi-region deployment |
-| **Embeddings** | OpenAI API | OpenAI + caching | Self-hosted models |
-| **Monitoring** | Basic logs | Structured logging + metrics | Full observability stack |
-| **Latency** | <500ms p95 | <1s p95 | <2s p95 |
-| **Cost** | ~$100/month | ~$5K/month | ~$50K+/month |
-
-## Performance Targets (2026 Standards)
-
-- **Query Latency:** <2 seconds end-to-end (p95)
-- **Retrieval Latency:** <200ms from Qdrant
-- **Graph Expansion:** <100ms from Neo4j
-- **Memory Lookup:** <50ms from Mem0
-- **LLM Generation:** <1.5 seconds
-- **Concurrent Users:** 1000+ simultaneous queries
-- **Uptime:** 99.9% SLA
-- **Hallucination Rate:** <1%
-- **Retrieval Accuracy:** >85% (MRR@10)
-
-## Technology Integration Notes
-
-### Mem0 Configuration with Neo4j + Qdrant
-```python
-from mem0 import Memory
-
-config = {
-    "graph_store": {
-        "provider": "neo4j",
-        "config": {
-            "url": "neo4j://localhost:7687",
-            "username": "neo4j",
-            "password": "password"
-        }
-    },
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-            "collection_name": "memory"
-        }
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {
-            "model": "gpt-4",
-            "temperature": 0.1
-        }
-    }
-}
-
-memory = Memory.from_config(config)
-```
-
-### LangChain Integration
-```python
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.retrievers import QdrantNeo4jRetriever
-
-# Custom retriever
-retriever = QdrantNeo4jRetriever(
-    neo4j_driver=neo4j_driver,
-    qdrant_client=qdrant_client,
-    collection_name="documents"
-)
-
-# QA chain
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    retriever=retriever,
-    chain_type="stuff"
-)
-```
+**Deliverable:** Polished, production-ready UI with good error handling
 
 ## Sources
 
-### High Confidence (Official Documentation)
-- [GraphRAG with Qdrant and Neo4j - Qdrant](https://qdrant.tech/documentation/examples/graphrag-qdrant-neo4j/)
-- [Integrate Qdrant and Neo4j to Enhance Your RAG Pipeline - Neo4j Blog](https://neo4j.com/blog/developer/qdrant-to-enhance-rag-pipeline/)
-- [Beyond Retrieval: Adding a Memory Layer to RAG with Unstructured and Mem0](https://unstructured.io/blog/beyond-retrieval-adding-a-memory-layer-to-rag-with-unstructured-and-mem0)
-- [Build a RAG agent with LangChain - LangChain Docs](https://docs.langchain.com/oss/python/langchain/rag)
-- [Neo4j GraphRAG - Qdrant Documentation](https://qdrant.tech/documentation/frameworks/neo4j-graphrag/)
+### Official Streamlit Documentation (HIGH Confidence)
+- [Multipage apps overview](https://docs.streamlit.io/develop/concepts/multipage-apps)
+- [st.Page and st.navigation (preferred approach)](https://docs.streamlit.io/develop/concepts/multipage-apps/page-and-navigation)
+- [Session State API](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state)
+- [st.query_params for URL parameters](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.query_params)
+- [st.write_stream for streaming content](https://docs.streamlit.io/develop/api-reference/write-magic/st.write_stream)
+- [Dynamic navigation tutorial](https://docs.streamlit.io/develop/tutorials/multipage/dynamic-navigation)
+- [User authentication concepts](https://docs.streamlit.io/develop/concepts/connections/authentication)
 
-### Medium Confidence (Industry Analysis)
-- [Building Production RAG Systems in 2026: Complete Architecture Guide](https://brlikhon.engineer/blog/building-production-rag-systems-in-2026-complete-architecture-guide)
-- [HybridRAG and Why Combine Vector Embeddings with Knowledge Graphs for RAG?](https://memgraph.com/blog/why-hybridrag)
-- [Vector vs. Graph RAG: How to Actually Architect Your AI Memory](https://optimumpartners.com/insight/vector-vs-graph-rag-how-to-actually-architect-your-ai-memory/)
-- [The Ultimate RAG Blueprint: Everything you need to know about RAG in 2025/2026](https://langwatch.ai/blog/the-ultimate-rag-blueprint-everything-you-need-to-know-about-rag-in-2025-2026)
-- [GraphRAG: How Lettria Unlocked 20% Accuracy Gains with Qdrant and Neo4j](https://qdrant.tech/blog/case-study-lettria-v2/)
-- [Collaborative Memory: Multi-User Memory Sharing in LLM Agents](https://arxiv.org/html/2505.18279v1)
-- [Design a Secure Multitenant RAG Inferencing Solution](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/secure-multitenant-rag)
-- [How to Build Production-Ready RAG Applications with LangChain and FastAPI](https://www.bitcot.com/build-rag-applications-with-langchain-and-fastapi/)
-- [AI System Design Patterns for 2026: Architecture That Scales](https://zenvanriel.nl/ai-engineer-blog/ai-system-design-patterns-2026/)
-- [Why 73% of RAG Systems Fail in Production](https://mindtechharbour.medium.com/why-73-of-rag-systems-fail-in-production-and-how-to-build-one-that-actually-works-part-1-6a888af915fa)
+### Streamlit 2026 Release Notes (HIGH Confidence)
+- [2026 release notes](https://docs.streamlit.io/develop/quick-reference/release-notes/2026) - st.App ASGI entry point, st.user.tokens for OIDC, session-scoped caching
+
+### Community Patterns and Integration Examples (MEDIUM Confidence)
+- [Streamlit + FastAPI integration patterns](https://pybit.es/articles/from-backend-to-frontend-connecting-fastapi-and-streamlit/)
+- [FastAPI SSE streaming with Streamlit](https://github.com/sarthakkaushik/FASTAPI-SSE-Event-Streaming-with-Streamlit)
+- [Project structure for medium/large apps](https://discuss.streamlit.io/t/project-structure-for-medium-and-large-apps-full-example-ui-and-logic-splitted/59967)
+- [JWT authentication implementation](https://blog.yusufberki.net/implement-jwt-authentication-for-the-streamlit-application-2e3b0ef884ef)
+- [Best practices for GenAI apps](https://blog.streamlit.io/best-practices-for-building-genai-apps-with-streamlit/)
+- [Role-based authentication discussion](https://discuss.streamlit.io/t/role-based-authentication/36598)
+
+### Third-Party Libraries (MEDIUM Confidence)
+- [streamlit-authenticator](https://github.com/mkhorasani/Streamlit-Authenticator) - Community auth library (not used in this project, but patterns referenced)
+- [sse-starlette](https://pypi.org/project/sse-starlette/) - FastAPI SSE support library
+
+---
+*Architecture research for: Streamlit frontend integration with FastAPI backend*
+*Researched: 2026-02-05*

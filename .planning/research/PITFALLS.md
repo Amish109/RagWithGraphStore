@@ -1,777 +1,397 @@
-# Domain Pitfalls: RAG with Graph + Vector Storage and Memory Management
+# Pitfalls Research: Streamlit Frontend for FastAPI Backend
 
-**Domain:** RAG System with Mem0, Neo4j, Qdrant, LangGraph, LangChain
-**Project Type:** Multi-user FastAPI document Q&A with persistent memory
-**Researched:** 2026-02-04
+**Domain:** Streamlit + FastAPI integration with JWT auth and SSE streaming
+**Researched:** 2026-02-05
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, major architectural issues, or production failures.
-
----
-
-### Pitfall 1: Confusing RAG with Agent Memory
-
-**What goes wrong:** Teams use RAG's semantic similarity for user memory storage, causing agents to "forget" context and lose conversation coherence. Memory isn't retrieved correctly because relationships, temporal context, and user state require different data structures than document retrieval.
-
-**Why it happens:** RAG and memory management are conceptually conflated. Developers assume vector similarity works for both document retrieval and user state management.
-
-**Consequences:**
-- Agents fail to maintain conversation context across sessions
-- User preferences and history don't persist correctly
-- Memory retrieval returns irrelevant past interactions based on keyword similarity rather than temporal or relational relevance
-- 20-30% higher hallucination rates when memory is implemented as pure RAG
-
-**Prevention:**
-- Use Mem0's hybrid approach: Neo4j for relationship/temporal memory + Qdrant for semantic document search
-- Separate memory spaces: user profile memory (graph) vs. document knowledge (vector)
-- Design memory schemas that capture relationships, not just text similarity
-- Implement explicit memory types (user preferences, conversation history, document metadata)
-
-**Detection:**
-- Users report that the system "forgets" previous conversations
-- Memory queries return topically similar but contextually irrelevant results
-- Session continuity breaks when switching topics
-- Testing shows agents can't answer "What did I ask you last week?"
-
-**Phase to address:** Phase 1 (Foundation) - Architecture must separate memory types from the start
-
-**Sources:**
-- [RAG is not Agent Memory | Letta](https://www.letta.com/blog/rag-vs-agent-memory)
-- [The Evolution from RAG to Agentic RAG to Agent Memory](https://www.leoniemonigatti.com/blog/from-rag-to-agent-memory.html)
-- [Stop Pretending Your Agent Memory Isn't RAG](https://medium.com/asymptotic-spaghetti-integration/stop-pretending-your-agent-memory-isnt-rag-c2daf995d820)
-
----
-
-### Pitfall 2: Memory Deletion Leaving Orphaned Graph Data
-
-**What goes wrong:** When using Mem0 with Neo4j + Qdrant, calling `Memory.delete(memory_id)` only removes vectors from Qdrant and adds a history record, but fails to clean up corresponding nodes and relationships in Neo4j. This creates orphaned graph data that accumulates indefinitely.
-
-**Why it happens:** Current Mem0 implementation has incomplete deletion logic across dual stores (GitHub issue #3245 as of 2026).
-
-**Consequences:**
-- Neo4j database grows unbounded with orphaned nodes
-- Graph queries become slower as dead data accumulates
-- Memory usage increases without bound
-- Graph visualization shows deleted entities
-- Eventual database corruption or performance collapse
-
-**Prevention:**
-- Implement custom deletion that explicitly removes Neo4j nodes/relationships
-- Add monitoring for orphaned nodes (nodes with deletion history but still present)
-- Schedule periodic cleanup jobs to detect and remove orphans
-- Test deletion workflows thoroughly in staging
-- Consider implementing soft-deletes with cleanup jobs instead of immediate deletion
-
-**Detection:**
-- Neo4j node count increases but vector count stays stable
-- Graph queries show entities that should be deleted
-- Query: `MATCH (n) WHERE NOT EXISTS((n)--()) RETURN count(n)` shows increasing orphans
-- Memory metrics show Qdrant/Neo4j size diverging over time
-
-**Phase to address:** Phase 2 (Multi-user Core) - Critical for GDPR/privacy compliance
-
-**Sources:**
-- [Memory deletion does not clean up Neo4j graph data · Issue #3245](https://github.com/mem0ai/mem0/issues/3245)
-- [The Dispatch Report: GitHub Repo Analysis: mem0ai/mem0](https://thedispatch.ai/reports/6847/)
-
----
-
-### Pitfall 3: Poor Chunking Strategy Torpedoes Retrieval Accuracy
-
-**What goes wrong:** Using fixed chunk sizes (e.g., "split every 512 tokens") destroys semantic context and torpedoes retrieval accuracy regardless of reranking sophistication. Context boundaries are ignored, leading to retrieval of incomplete or meaningless fragments.
-
-**Why it happens:** Most tutorials show simple fixed-size chunking as the default. Teams underestimate how critical chunking is to RAG performance.
-
-**Consequences:**
-- Retrieval returns partial paragraphs that lack context
-- LLM receives fragments that don't answer the question
-- Accuracy drops 30-50% compared to semantic chunking
-- Tables, lists, and code blocks are split mid-structure
-- Users get incomplete or nonsensical answers
-
-**Prevention:**
-- Use semantic chunking that respects document structure (paragraphs, sections, tables)
-- For PDFs: Use layout-aware parsers like Docling (not PyPDF2)
-- For DOCX: Preserve document hierarchy and embedded images
-- Implement hybrid chunking: semantic boundaries + max token limits
-- Test chunking strategies: fixed (baseline), semantic, sentence-window, document-summary
-- Use metadata to track chunk context (parent document, section, page number)
-- Chunk size recommendations: Start with 512 tokens, 50-100 token overlap for baseline testing
-
-**Detection:**
-- Retrieved chunks often lack context to answer queries
-- Manual inspection shows chunks split mid-sentence or mid-table
-- Evaluation shows low retrieval precision (<60%)
-- Users complain answers are "incomplete" or "cut off"
-- Similar queries return vastly different quality results
-
-**Phase to address:** Phase 1 (Foundation) - Core ingestion pipeline
-
-**Sources:**
-- [23 RAG Pitfalls and How to Fix Them](https://www.nb-data.com/p/23-rag-pitfalls-and-how-to-fix-them)
-- [Chunking Strategies to Improve Your RAG Performance | Weaviate](https://weaviate.io/blog/chunking-strategies-for-rag)
-- [FAQ - Docling](https://docling-project.github.io/docling/faq/)
-- [Chunking and Embedding Documents | RAG | Mastra Docs](https://mastra.ai/docs/rag/chunking-and-embedding)
-
----
-
-### Pitfall 4: Multi-Tenant Isolation Failures
-
-**What goes wrong:** Using a single Qdrant collection without proper tenant isolation allows users to retrieve other users' documents. Metadata filtering alone is insufficient if query validation is missing or bypassable.
-
-**Why it happens:** Teams implement "one big bucket" indices with tenant_id filtering, but forget to enforce filtering at every access point. API bypasses or logic errors expose cross-tenant data.
-
-**Consequences:**
-- CRITICAL: Data breach - users see other users' private documents
-- Regulatory violations (GDPR, HIPAA, SOC2)
-- Complete loss of customer trust
-- Legal liability
-- Requires immediate disclosure and remediation
-
-**Prevention:**
-- **For small tenants (<1000 users):** Single collection + payload-based partitioning with `is_tenant=true` index parameter
-- **For large tenants:** Use Qdrant v1.16+ tiered multitenancy (dedicated shards for large tenants, shared shards for small)
-- Enforce tenant_id filtering in middleware, not in application code (defense in depth)
-- Use separate collections for anonymous vs. authenticated users
-- Implement query validation: reject queries missing tenant_id filter
-- Add audit logging for all cross-tenant boundary queries
-- Test: Attempt to query without tenant_id, with wrong tenant_id, with SQL injection patterns
-- For Neo4j: Use similar node property filtering with mandatory WHERE clauses
-
-**Detection:**
-- Security audit shows queries without tenant filters
-- Logs reveal successful queries across tenant boundaries
-- Penetration testing finds filter bypass
-- Users report seeing others' data (worst case)
-- Monitoring shows queries returning data from multiple tenant_ids
-
-**Phase to address:** Phase 2 (Multi-user Core) - MUST BE ROCK SOLID before user data ingestion
-
-**Sources:**
-- [Design a Secure Multitenant RAG Inferencing Solution](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/secure-multitenant-rag)
-- [Multitenancy - Qdrant](https://qdrant.tech/documentation/guides/multitenancy/)
-- [Qdrant 1.16 - Tiered Multitenancy](https://qdrant.tech/blog/qdrant-1.16.x/)
-- [Building Production RAG Systems in 2026](https://brlikhon.engineer/blog/building-production-rag-systems-in-2026-complete-architecture-guide)
-
----
-
-### Pitfall 5: JWT Security Vulnerabilities in RAG Context
-
-**What goes wrong:** RAG-specific attack: poisoning RAG data to manipulate AI agents into sending JWTs to attacker-controlled "logging services" for "debugging." Additionally, common JWT mistakes (hardcoded secrets, no signature validation, accepting "none" algorithm) expose the entire system.
-
-**Why it happens:**
-- 40%+ of breaches involve authentication flaws
-- Teams underestimate RAG as an attack vector
-- JWTs seem simple but have subtle security requirements
-- Secrets are hardcoded for "convenience"
-
-**Consequences:**
-- Token theft allows full account takeover
-- Attacker gains access to all user documents and memories
-- Data exfiltration of multi-tenant data
-- Privilege escalation (anonymous → authenticated → admin)
-- Chain attacks: JWT → API access → data poisoning → further JWT theft
-
-**Prevention:**
-- **JWT Basics:**
-  - Never accept "none" algorithm - always verify signature
-  - Use strong secrets (32+ bytes, cryptographically random)
-  - Store secrets in environment variables, never in code
-  - Set short expiration (15 min access token, 7 day refresh token)
-  - Implement refresh token rotation
-  - Use HTTPS exclusively in production
-
-- **RAG-Specific:**
-  - Sanitize all ingested documents before storing
-  - Validate retrieved context before sending to LLM
-  - Monitor for unusual patterns (e.g., documents mentioning external logging services)
-  - Implement prompt injection detection
-  - Never log full JWTs (only last 4 characters)
-  - For anonymous sessions: Generate single-use tokens, short TTL, no sensitive operations
-
-- **2026 Best Practices:**
-  - Treat every machine action as unique, time-bound event
-  - Implement Zero Standing Privileges
-  - Move toward ephemeral authentication where possible
-
-**Detection:**
-- Security scan shows hardcoded secrets
-- Logs contain full JWT tokens
-- API accepts tokens with "none" algorithm
-- No token expiration validation
-- Anonymous tokens have same privileges as authenticated
-- Document content contains suspicious external URLs or logging instructions
-
-**Phase to address:** Phase 1 (Foundation) + Phase 2 (Multi-user Core)
-
-**Sources:**
-- [JWT Vulnerabilities List: 2026 Security Risks & Mitigation Guide](https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide)
-- [Beyond the Secret: The Silent Risks of JWT and Machine Identity](https://medium.com/@instatunnel/beyond-the-secret-the-silent-risks-of-jwt-and-machine-identity-49bea4aa4547)
-- [7 Ways to Avoid API Security Pitfalls when using JWT](https://42crunch.com/7-ways-to-avoid-jwt-pitfalls/)
-
----
-
-### Pitfall 6: LangGraph Memory Checkpoint Bloat and OOM Errors
-
-**What goes wrong:** LangGraph stores full application state at each checkpoint. Storing large binary objects (PDFs, images as base64) or running many sessions without TTL causes checkpoint bloat, memory errors, pod crashes, and eventual database exhaustion.
-
-**Why it happens:**
-- Teams store document content directly in LangGraph state for "convenience"
-- No TTL configured on checkpoints (old sessions never expire)
-- Memory leaks in custom code (caches that block garbage collection)
-- Long conversations accumulate unbounded history
-
-**Consequences:**
-- Out of Memory (OOM) errors kill pods/processes
-- Database disk space exhaustion
-- Degraded performance as checkpoint tables grow
-- Connection timeouts for long-running workflows
-- System becomes unusable under normal load
-- Recovery requires manual database cleanup
-
-**Prevention:**
-- **Never store large objects in state:**
-  - Store document IDs/references, not content
-  - Use external blob storage (S3) for PDFs/images
-  - Keep state minimal: only IDs, short strings, small metadata
-
-- **Configure TTL:**
-  - Set checkpoint retention (e.g., 30 days for active, 7 days for completed)
-  - Implement automatic cleanup jobs
-  - Use exit durability mode for short-lived workflows
-
-- **Conversation Memory:**
-  - Implement sliding window (keep last N messages)
-  - Summarize old conversation history
-  - Don't store full context in every checkpoint
-  - Most LLMs perform poorly over long contexts anyway
-
-- **Database Configuration:**
-  - If using PostgresSaver directly, don't hold connections for entire run duration
-  - Use connection pooling
-  - Monitor database size and query performance
-
-- **Memory Leak Prevention:**
-  - Avoid in-memory caches that block GC
-  - Profile memory usage in staging
-  - Set pod memory limits appropriate to workload
-
-**Detection:**
-- Pods/processes crash with OOM errors
-- Database disk usage grows unbounded
-- Query: `SELECT pg_size_pretty(pg_total_relation_size('checkpoints'))` shows excessive growth
-- Checkpoint table has millions of rows for handful of users
-- Performance degrades over days/weeks
-- Logs show "connection timeout" or "database full" errors
-
-**Phase to address:** Phase 3 (LangGraph Integration) - Before deploying to production
-
-**Sources:**
-- [Understanding Checkpointers, Databases, API Memory and TTL](https://support.langchain.com/articles/6253531756-understanding-checkpointers-databases-api-memory-and-ttl)
-- [Memory overview - LangChain](https://docs.langchain.com/oss/python/langgraph/memory)
-- [Agents log everything… except the reason they failed](https://forum.langchain.com/t/agents-log-everything-except-the-reason-they-failed-why/1421)
-
----
-
-## Moderate Pitfalls
-
-Mistakes that cause delays, technical debt, or significant rework.
-
----
-
-### Pitfall 7: Embedding Dimension Mismatches
-
-**What goes wrong:** Creating a Qdrant collection with 1536 dimensions, then switching to an embedding model that outputs 768 dimensions. Or vice versa. The vector store rejects insertions with cryptic errors.
-
-**Why it happens:**
-- Embedding model changed mid-development (e.g., OpenAI to Ollama)
-- Different models used for indexing vs. querying
-- Model upgrade changes dimension count
-- Collection dimensionality set on first insert and locked forever
-
-**Consequences:**
-- Runtime errors during document ingestion or querying
-- 400 Bad Request with dimension mismatch messages
-- Need to recreate collections and re-embed all documents
-- Hours/days of wasted debugging time
-
-**Prevention:**
-- **Document embedding model early:** Model name, version, dimension count
-- **Centralize embedding logic:** Single function for all embeddings
-- **Configuration validation at startup:**
-  ```python
-  assert len(embed("test")) == config.vector_dimension, "Dimension mismatch!"
-  ```
-- **Version lock dependencies:** Pin exact versions of embedding libraries
-- **Test in CI:** Verify embedding dimensions match collection config
-- **Migration planning:** If changing models, plan for re-embedding entire corpus
-
-**Detection:**
-- Errors like "Vector dimension 768 does not match index 1536"
-- Insertion/query failures with dimension-related messages
-- Unit tests fail after dependency update
-- Different behavior between development (Ollama) and production (OpenAI)
-
-**Phase to address:** Phase 1 (Foundation) - Prevent from start
-
-**Sources:**
-- [Dealing with Vector Dimension Mismatch](https://medium.com/@epappas/dealing-with-vector-dimension-mismatch-my-experience-with-openai-embeddings-and-qdrant-vector-20a6e13b6d9f)
-- [Resolving Vector Dimension Mismatches in AI Workflows](https://dev.to/hijazi313/resolving-vector-dimension-mismatches-in-ai-workflows-47m)
-- [mem0.add() does not store embeddings in Qdrant · Issue #3441](https://github.com/mem0ai/mem0/issues/3441)
-
----
-
-### Pitfall 8: Graph Database Schema Neglect Causes Performance Collapse
-
-**What goes wrong:** Not designing Neo4j schema upfront leads to inefficient queries, missing indexes, and eventual performance collapse. Complex traversals and multi-hop queries become unusably slow.
-
-**Why it happens:**
-- Teams start with "just store everything" mentality
-- Graph flexibility misunderstood as "no schema needed"
-- Performance issues only appear at scale (>100K nodes)
-- Initial queries are simple and hide the problem
-
-**Consequences:**
-- Multi-hop relationship queries take seconds/minutes
-- Graph becomes unusable for real-time retrieval
-- Need to redesign schema after significant data ingestion
-- Migration requires reprocessing all documents and memories
-- Poor schema can't support planned features (e.g., document comparison needs relationship types defined upfront)
-
-**Prevention:**
-- **Design schema early:** Define node types, relationship types, and properties before ingestion
-  - Example nodes: User, Document, Memory, Conversation, Entity
-  - Example relationships: OWNS, CONTAINS, MENTIONS, RELATES_TO, FOLLOWS
-
-- **Index critical properties:**
-  - User.id, Document.id, Memory.id (unique constraints)
-  - Document.tenant_id (for filtering)
-  - Relationship timestamps (for temporal queries)
-
-- **Relationship direction matters:**
-  - Decide direction based on query patterns
-  - Use consistent direction for same relationship types
-
-- **Balance detail vs. complexity:**
-  - Too granular: performance suffers, query logic complex
-  - Too coarse: can't answer sophisticated queries
-
-- **Test queries at expected scale:**
-  - Generate synthetic data (1M+ nodes)
-  - Run query patterns and measure performance
-  - Identify slow queries and add indexes
-
-**Detection:**
-- Queries taking >1 second at <100K nodes
-- EXPLAIN shows full scans without index usage
-- Graph visualization is unstructured "hairball"
-- Queries require complex multi-hop logic to find simple relationships
-- New feature requirements reveal missing relationship types
-
-**Phase to address:** Phase 1 (Foundation) - Schema design is architectural
-
-**Sources:**
-- [GraphRAG & Knowledge Graphs: Making Your Data AI-Ready for 2026](https://flur.ee/fluree-blog/graphrag-knowledge-graphs-making-your-data-ai-ready-for-2026/)
-- [What Is GraphRAG? - Neo4j](https://neo4j.com/blog/genai/what-is-graphrag/)
-- [Graph RAG vs vector RAG: 3 differences, pros and cons](https://www.instaclustr.com/education/retrieval-augmented-generation/graph-rag-vs-vector-rag-3-differences-pros-and-cons-and-how-to-choose/)
-
----
-
-### Pitfall 9: Context Pollution Degrading LLM Reasoning
-
-**What goes wrong:** Retrieving too many irrelevant chunks (5-10 documents where 3+ are tangentially related) pollutes the LLM context, degrading reasoning performance by 20-30%. RAG introduces noise that harms model performance.
-
-**Why it happens:**
-- Default retrieval retrieves top-K by similarity (e.g., top-10) without quality filtering
-- No re-ranking or relevance threshold
-- Vector similarity doesn't equal semantic relevance
-- "More context is better" assumption
-
-**Consequences:**
-- LLM outputs become less accurate despite "more information"
-- Increased hallucination rates
-- Slower inference (longer context)
-- Higher costs (more tokens processed)
-- Users get answers that mix irrelevant information
-
-**Prevention:**
-- **Implement re-ranking:** Use cross-encoder models after initial retrieval to score relevance
-- **Set relevance thresholds:** Only include chunks with similarity >0.7 (tune based on evaluation)
-- **Limit retrieval count:** Start with top-3, not top-10
-- **Use metadata filtering:** Pre-filter by document type, date, tenant before similarity search
-- **Hybrid search:** Combine semantic (vector) + keyword (BM25) for better precision
-- **Context compression:** Summarize or extract key sentences from retrieved chunks
-- **Evaluation-driven tuning:** Measure precision/recall at different K values
-
-**Detection:**
-- Users report answers include irrelevant information
-- Manual review shows retrieved chunks are off-topic
-- Evaluation metrics show low precision (<60%)
-- Increasing retrieval count decreases answer quality
-- LLM outputs mention "based on the documents provided..." but answer is generic
-
-**Phase to address:** Phase 4 (Advanced RAG) - Optimization phase
-
-**Sources:**
-- [23 RAG Pitfalls and How to Fix Them](https://www.nb-data.com/p/23-rag-pitfalls-and-how-to-fix-them)
-- [Stanford's Warning: Your RAG System Is Broken](https://medium.com/@sameerizwan3/stanfords-warning-your-rag-system-is-broken-and-how-to-fix-it-c28a770fe7fe)
-- [Building Production RAG Systems in 2026](https://brlikhon.engineer/blog/building-production-rag-systems-in-2026-complete-architecture-guide)
-
----
-
-### Pitfall 10: Document Processing Pipeline Errors (PDF/DOCX)
+### Pitfall 1: JWT Token Lost on Browser Refresh
 
 **What goes wrong:**
-- DOCX/HTML image extraction fails silently
-- PDF table structures are destroyed during parsing
-- Embedded images ignored, losing critical context
-- Token length warnings flood logs
-- ImportError conflicts between opencv-python and opencv-python-headless
+JWT tokens stored in `st.session_state` disappear when users refresh their browser, logging them out unexpectedly. Session state exists only "as long as the tab is open and connected to the Streamlit server" and is not persisted across page refreshes that disconnect the session.
 
 **Why it happens:**
-- Using basic parsers (PyPDF2, python-docx) that don't handle complex documents
-- Not testing on real-world documents (tables, images, multi-column layouts)
-- Dependency conflicts in document processing libraries
+Developers assume `st.session_state` provides persistence like localStorage, but it only survives script reruns within the same connection. Browser refresh creates a new session with blank state.
 
-**Consequences:**
-- Users upload documents but key information is lost
-- Tables become unreadable text blobs
-- Images with critical diagrams are invisible to RAG
-- System appears to work but provides incomplete answers
-- Users lose trust when answers ignore obvious document content
+**How to avoid:**
+Use HTTP-only cookies for JWT token storage. FastAPI backend sets tokens in secure, same-site cookies that Streamlit can read via cookie managers like `streamlit-cookies-manager` or `extra-streamlit-components`. The cookie persists across refreshes while session state does not.
 
-**Prevention:**
-- **Use production-grade parsers:**
-  - Docling for PDF/DOCX/PPTX/HTML (layout-aware, OCR support)
-  - Not PyPDF2 or basic libraries
+**Warning signs:**
+- Users report being "logged out" when refreshing
+- Authentication state works during navigation but fails on F5/refresh
+- Token exists in session state but no cookie backup mechanism
 
-- **Handle embedded content:**
-  - Extract and process images separately
-  - Use vision models for diagram/chart understanding
-  - Preserve table structures with markdown or HTML
-
-- **Test on diverse documents:**
-  - Multi-column layouts
-  - Complex tables with merged cells
-  - Documents with embedded images
-  - Scanned PDFs requiring OCR
-
-- **Dependency management:**
-  - Pin exact versions to avoid conflicts
-  - Use virtual environments
-  - Resolve opencv conflicts before deployment
-
-- **Chunk with structure awareness:**
-  - Keep tables together
-  - Keep image captions with images
-  - Preserve hierarchical document structure
-
-**Detection:**
-- Manual review shows missing content from PDFs
-- Tables rendered as garbled text
-- Images mentioned in text but not in retrieved context
-- Logs show ImportError or library conflicts
-- Users complain about "incomplete" answers from clearly documented topics
-
-**Phase to address:** Phase 1 (Foundation) - Core ingestion
-
-**Sources:**
-- [Unable to Use Mem0 with Ollama Locally · Issue #2030](https://github.com/mem0ai/mem0/issues/2030)
-- [How to configure Docling Pipeline for DOCX and HTML · Issue #1347](https://github.com/docling-project/docling/issues/1347)
-- [FAQ - Docling](https://docling-project.github.io/docling/faq/)
-- [Advanced chunking for PDF/Word with embedded images](https://medium.com/@saptarshi701/advanced-chunking-for-pdf-word-with-embedded-images-using-regular-parsers-and-gpt-4o-7f0d5eb97052)
+**Phase to address:**
+Early authentication implementation phase. Token persistence must be designed from the start as retrofitting is architecturally disruptive.
 
 ---
 
-### Pitfall 11: Hybrid Storage Synchronization Complexity
+### Pitfall 2: Infinite Rerun Loop in Authentication Flow
 
-**What goes wrong:** Managing dual stores (Neo4j + Qdrant) creates synchronization challenges. Updates to one store may fail while the other succeeds, creating inconsistent state. Rollback logic is complex or missing.
+**What goes wrong:**
+Authentication logic with `st.rerun()` creates infinite loops where the script continuously reruns without user control. The app becomes unresponsive and may crash.
 
 **Why it happens:**
-- No distributed transaction support across Neo4j and Qdrant
-- Mem0 abstraction hides complexity
-- Teams don't plan for partial failures
-- "Happy path" testing doesn't reveal issues
+Calling `st.rerun()` inside button handlers without proper state guards causes the button to remain "pressed" across reruns. Streamlit buttons return `True` only on the click rerun, then immediately `False`, but if `st.rerun()` executes before state updates, the condition repeats indefinitely.
 
-**Consequences:**
-- Data inconsistency: vector exists but graph doesn't (or vice versa)
-- Queries return incomplete results
-- Difficult to debug which store is authoritative
-- Manual intervention required to fix inconsistencies
-- Production incidents during store maintenance
+**How to avoid:**
+1. Use session state flags instead of direct button checks: set `st.session_state.authenticated = True` in callback, check flag for rendering
+2. Use callbacks on buttons rather than inline `st.rerun()` calls
+3. Add state guards: `if not st.session_state.get('auth_in_progress', False)` before triggering rerun
+4. Never call `st.rerun()` unconditionally in authentication handlers
 
-**Prevention:**
-- **Write-ahead logging:** Log intent before dual writes
-- **Implement compensating transactions:** If second write fails, rollback first
-- **Idempotency:** Make operations replayable (use UUIDs, not auto-increment)
-- **Monitoring:** Alert when store sizes diverge significantly
-- **Background reconciliation:** Periodic job to detect and fix inconsistencies
-- **Graceful degradation:** If one store is down, queue operations or return partial results
-- **Use Mem0 carefully:** Understand what it does vs. what you need to handle
+**Warning signs:**
+- App freezes on login/logout button clicks
+- Console shows rapid repeated script executions
+- CPU usage spikes when authentication triggers
+- Error: "infinite looping may crash your app"
 
-**Detection:**
-- Qdrant collection count != Neo4j node count (for same entity type)
-- Queries to one store succeed, queries to other fail for same ID
-- Logs show partial write failures
-- Manual data inspection reveals missing relationships or vectors
-- Users report inconsistent search results
-
-**Phase to address:** Phase 2 (Multi-user Core) - Before production load
-
-**Sources:**
-- [Memory deletion does not clean up Neo4j graph data · Issue #3245](https://github.com/mem0ai/mem0/issues/3245)
-- [Hybrid RAG in the Real World](https://community.netapp.com/t5/Tech-ONTAP-Blogs/Hybrid-RAG-in-the-Real-World-Graphs-BM25-and-the-End-of-Black-Box-Retrieval/ba-p/464834)
-- [HybridRAG: Integrating Knowledge Graphs and Vector Retrieval](https://arxiv.org/html/2408.04948v1)
+**Phase to address:**
+Initial authentication UI implementation. Must establish proper state management patterns before building complex flows.
 
 ---
 
-## Minor Pitfalls
+### Pitfall 3: SSE Streaming Buffered Instead of Real-Time
 
-Mistakes that cause annoyance but are fixable without major rework.
-
----
-
-### Pitfall 12: No Evaluation Framework = Silent Quality Degradation
-
-**What goes wrong:** Building RAG without automated evaluation means quality issues go undetected. Manual testing misses edge cases. Changes break performance without anyone noticing.
+**What goes wrong:**
+SSE responses from FastAPI appear all at once after completion rather than streaming incrementally. Users see no progress indication despite streaming being implemented on backend.
 
 **Why it happens:**
-- "It works in my tests" mentality
-- Evaluation seems like extra work
-- Not clear what metrics to track
+Middleware, proxies, or app servers buffer responses until the route handler completes. For Streamlit specifically, using standard HTTP clients without proper SSE handling causes chunk buffering. Additionally, `st.write_stream()` expects Python generators/iterables, not raw SSE EventSource connections.
 
-**Consequences:**
-- Quality degrades over time (embeddings change, models update, data drifts)
-- Can't compare improvement experiments
-- Bugs reach production
-- No objective measure of system performance
+**How to avoid:**
+1. Use `sseclient-py` library to consume SSE streams from FastAPI endpoints
+2. Convert SSE stream to Python generator before passing to `st.write_stream()`
+3. On FastAPI side, ensure `StreamingResponse` with `media_type="text/event-stream"` and proper chunk yielding
+4. Disable buffering in deployment proxies (nginx `X-Accel-Buffering: no`, Cloudflare stream mode)
+5. Use small chunk sizes and explicit flush on backend
 
-**Prevention:**
-- **Implement evaluation from Phase 1:**
-  - Retrieval metrics: Precision@K, Recall@K, MRR (Mean Reciprocal Rank)
-  - Generation metrics: RAGAS, context precision, faithfulness, answer relevance
-  - Create gold standard test set (50-100 Q&A pairs)
+**Warning signs:**
+- Streaming works in curl/browser EventSource but not in Streamlit
+- Progress indicators don't update during generation
+- All content appears simultaneously after long wait
+- Network tab shows data arriving incrementally but UI doesn't update
 
-- **Automated testing:**
-  - Run evaluation on every PR
-  - Alert on metric regression
-  - Track metrics over time in dashboard
-
-- **Not just final answer:**
-  - Evaluate retrieval quality separately
-  - Catch retrieval problems before generation
-
-**Detection:**
-- No test coverage for RAG pipeline
-- Changes deployed without quality measurement
-- User complaints are first sign of quality issues
-
-**Phase to address:** Phase 1 (Foundation) - Set up early
-
-**Sources:**
-- [RAG Evaluation: 2026 Metrics and Benchmarks](https://labelyourdata.com/articles/llm-fine-tuning/rag-evaluation)
-- [RAG Monitoring Tools Benchmark in 2026](https://research.aimultiple.com/rag-monitoring/)
+**Phase to address:**
+Streaming implementation phase. Requires proper generator wrapping patterns established early.
 
 ---
 
-### Pitfall 13: Ignoring Metadata for Retrieval Boost
+### Pitfall 4: Anonymous Session Data Orphaned Without Migration
 
-**What goes wrong:** Relying solely on text similarity ignores metadata that could dramatically improve relevance (document type, upload date, author, tags).
-
-**Why it happens:** Focus on embeddings overshadows traditional structured filtering.
-
-**Consequences:**
-- Lower retrieval precision
-- Can't filter by user-specific requirements ("only PDFs from last month")
-- Missed opportunity for hybrid search improvements
-
-**Prevention:**
-- Store metadata: document_type, upload_date, author, tenant_id, tags, file_size
-- Use metadata in queries: Pre-filter before similarity search
-- Allow users to specify metadata filters
-- Index metadata fields in Qdrant with `is_tenant=true` for tenant_id
-
-**Phase to address:** Phase 1 (Foundation) - Schema design
-
----
-
-### Pitfall 14: Stale Embeddings After Model Updates
-
-**What goes wrong:** Upgrading embedding models or changing data leaves old embeddings in place. New queries use new embeddings, old documents have old embeddings. Similarity comparisons are invalid.
-
-**Why it happens:** No re-embedding strategy planned.
-
-**Consequences:**
-- Retrieval accuracy drops mysteriously
-- New documents rank differently than old
-- Inconsistent search results
-
-**Prevention:**
-- Version embeddings (metadata: `embedding_model_version: "text-embedding-3-small-v1"`)
-- Plan re-embedding strategy before model changes
-- Background job to re-embed documents in batches
-- Hybrid approach during migration (query both old and new, favor new)
-
-**Phase to address:** Phase 4 (Advanced RAG) - Operational concern
-
-**Sources:**
-- [RAG at Scale: How to Build Production AI Systems in 2026](https://redis.io/blog/rag-at-scale/)
-
----
-
-### Pitfall 15: FastAPI Async/Sync Confusion Killing Performance
-
-**What goes wrong:** Mixing async/sync incorrectly, calling synchronous database operations from async endpoints, or making everything async without understanding when it helps.
+**What goes wrong:**
+Users create content (upload docs, ask questions) as anonymous users, then register. Their previous work disappears because anonymous session ID doesn't migrate to authenticated user account. Users lose trust and abandon the app.
 
 **Why it happens:**
-- async/await is trendy but poorly understood
-- SQLAlchemy, Neo4j, Qdrant clients have both sync and async versions
-- Tutorials show simple cases, not hybrid scenarios
+Cookie-based anonymous sessions use temporary IDs. After authentication, new session starts with new user ID. Without explicit data migration logic, documents/memories remain tied to old anonymous ID in both Neo4j and Qdrant, unreachable by new authenticated identity.
 
-**Consequences:**
-- High latency despite "async" everywhere
-- Blocked event loop causes slow responses under load
-- ThreadPoolExecutor overhead without benefit
+**How to avoid:**
+1. Store anonymous session ID in both session state AND HTTP-only cookie for persistence
+2. On registration/login, check for `anonymous_session_id` cookie
+3. Backend migration endpoint: query Neo4j/Qdrant for documents with `anonymous_session_id`, update to `authenticated_user_id`
+4. Handle race conditions: lock during migration, prevent concurrent document operations
+5. Log migration success/failure for debugging orphaned data
+6. Implement cleanup job: TTL-based deletion of unmigrated anonymous data after configurable period (e.g., 30 days)
 
-**Prevention:**
-- Use async for I/O-bound operations (DB, API calls, file I/O)
-- Keep CPU-bound work in sync functions (embedding, chunking) or use `run_in_executor()`
-- Use async clients: asyncpg, motor, httpx
-- Profile to find actual bottlenecks before optimizing
-- Don't assume async = fast (measure!)
+**Warning signs:**
+- User uploads documents anonymously, then registers and sees empty document list
+- Support requests about "lost documents after signing up"
+- Database contains documents with orphaned anonymous session IDs
+- Memory service shows conversation history for anonymous IDs but not after auth
 
-**Phase to address:** Phase 3 (LangGraph Integration) - Performance optimization
-
-**Sources:**
-- [FastAPI Performance Tuning & Caching Strategy 101](https://blog.greeden.me/en/2026/02/03/fastapi-performance-tuning-caching-strategy-101-a-practical-recipe-for-growing-a-slow-api-into-a-lightweight-fast-api/)
-- [Building High-Performance APIs with Haystack, Bytewax and FastAPI](https://bytewax.io/blog/rag-app-case-study-haystack-bytewax-fastapi/)
+**Phase to address:**
+Multi-user isolation phase when anonymous sessions are introduced. Migration logic must be atomic and part of authentication flow.
 
 ---
 
-### Pitfall 16: Neo4j Vector Index Memory Misconfiguration
+### Pitfall 5: File Upload Fails with 422 Unprocessable Entity
 
-**What goes wrong:** Insufficient memory allocated for Neo4j's Lucene-based vector indexes causes page swapping and disk I/O, dramatically degrading search performance.
+**What goes wrong:**
+Uploading files from Streamlit's `st.file_uploader()` to FastAPI backend returns 422 error. Request fails validation despite file being successfully read in Streamlit.
 
-**Why it happens:** Default memory settings are too low for production vector workloads.
+**Why it happens:**
+`st.file_uploader()` returns `UploadedFile` object (BytesIO wrapper), not raw bytes. Sending this directly to FastAPI without proper multipart encoding causes type mismatch. FastAPI expects `UploadFile` or proper `multipart/form-data` formatting.
 
-**Consequences:**
-- Vector search takes seconds instead of milliseconds
-- System becomes unresponsive under load
-- Graph queries are fine but vector queries timeout
+**How to avoid:**
+```python
+# WRONG: Direct file object
+files = {"file": uploaded_file}
+response = requests.post(f"{API_URL}/upload", files=files)
 
-**Prevention:**
-- Configure vector index memory allocation in neo4j.conf
-- Increase lucene memory for vector indexes based on corpus size
-- Monitor swap usage and disk I/O
-- Consider quantization for better performance (slight accuracy tradeoff)
+# CORRECT: Proper multipart encoding
+files = {
+    "file": (
+        uploaded_file.name,  # filename
+        uploaded_file.getvalue(),  # bytes
+        uploaded_file.type  # mime type
+    )
+}
+response = requests.post(f"{API_URL}/upload", files=files)
 
-**Phase to address:** Phase 1 (Foundation) - Infrastructure setup
+# OR use requests-toolbelt for complex multipart
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+m = MultipartEncoder(fields={
+    'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+})
+response = requests.post(
+    f"{API_URL}/upload",
+    data=m,
+    headers={'Content-Type': m.content_type}
+)
+```
 
-**Sources:**
-- [Vector index memory configuration - Neo4j](https://neo4j.com/docs/operations-manual/current/performance/vector-index-memory-configuration/)
-- [Why Vector Search Didn't Work for Your RAG Solution](https://neo4j.com/blog/developer/why-vector-search-didnt-work-rag/)
+FastAPI backend must install `python-multipart` and use `File(...)` or `UploadFile` parameter.
 
----
+**Warning signs:**
+- 422 errors on file upload with validation error about file field
+- File uploads work with curl/Postman but fail from Streamlit
+- Backend logs show missing or malformed file in request
 
-### Pitfall 17: Document Comparison Scaling Issues
-
-**What goes wrong:** Implementing document comparison naively (retrieve full documents, compare in memory) causes memory spikes and slow response times as document size/count grows.
-
-**Why it happens:** "Just load and compare" is obvious approach but doesn't scale.
-
-**Consequences:**
-- Comparison timeouts for large documents
-- OOM errors when comparing many documents
-- User frustration with slow feature
-
-**Prevention:**
-- Use vector similarity for initial filtering (find similar documents)
-- Compare summaries or key sections, not full text
-- Chunk-level comparison with aggregation
-- Stream results instead of loading everything
-- Set hard limits (max documents to compare, max size per document)
-- Cache comparison results
-
-**Phase to address:** Phase 5 (Advanced Features) - Document comparison feature
-
-**Sources:**
-- [RAG at Scale: How to Build Production AI Systems in 2026](https://redis.io/blog/rag-at-scale/)
-- [15 Best Open-Source RAG Frameworks in 2026](https://www.firecrawl.dev/blog/best-open-source-rag-frameworks)
+**Phase to address:**
+Document upload implementation phase. File handling patterns should be tested with real FastAPI integration immediately.
 
 ---
 
-## Phase-Specific Warnings
+### Pitfall 6: Session State Pickle Vulnerability with Untrusted JWT Data
 
-| Phase | Likely Pitfall | Mitigation |
-|-------|---------------|------------|
-| Phase 1: Foundation | Confusing RAG with memory (#1), Poor chunking (#3), Embedding dimensions (#7), Schema neglect (#8) | Design separate memory/knowledge stores, semantic chunking, lock embedding model, design Neo4j schema |
-| Phase 2: Multi-user Core | Multi-tenant isolation (#4), Memory deletion bugs (#2), JWT vulnerabilities (#5) | Tiered multitenancy, test deletion workflows, JWT security audit |
-| Phase 3: LangGraph Integration | Checkpoint bloat (#6), Async/sync confusion (#15) | Configure TTL, profile memory usage, use appropriate async patterns |
-| Phase 4: Advanced RAG | Context pollution (#9), Stale embeddings (#14), No evaluation (#12) | Implement re-ranking, version embeddings, set up evaluation framework |
-| Phase 5: Advanced Features | Document comparison scaling (#17), Graph query performance (#8) | Chunk-level comparison, optimize Neo4j indexes and queries |
+**What goes wrong:**
+Streamlit uses `pickle` module internally for session state serialization. Storing JWT claims or user-provided data directly in session state creates arbitrary code execution vulnerability if attacker crafts malicious pickle data.
 
----
+**Why it happens:**
+Developers treat session state like a secure store without realizing pickle deserialization can execute arbitrary code. JWT claims from external auth providers may contain untrusted data that gets pickled.
 
-## Technology-Specific Warnings
+**How to avoid:**
+1. **Validate and sanitize** all JWT claims before storing in session state
+2. Store only primitive types (str, int, bool, dict with primitive values) in session state
+3. Never store raw JWT tokens in session state - only parsed, validated claims
+4. Use separate secure storage (Redis, encrypted cookies) for sensitive authentication data
+5. Implement input validation: whitelist allowed characters in user-provided fields
+6. Consider using `st.secrets` for truly sensitive values instead of session state
 
-### Mem0
-- **Active bugs:** Memory deletion incomplete (issue #3245), Ollama embedding storage (issue #3441), Qdrant Cloud connection errors (issue #3915)
-- **Recommendation:** Test deletion workflows thoroughly, monitor for orphaned data, consider implementing custom deletion logic
-- **Confidence:** MEDIUM - Active development, issues being tracked
+**Warning signs:**
+- Storing complex objects or raw serialized data in session state
+- No validation on JWT claims before storage
+- Storing entire JWT token payload without parsing
+- Security scanner flags pickle usage in authentication flow
 
-### Neo4j + Vector Search
-- **Performance:** Memory configuration critical, quantization tradeoffs
-- **Schema:** Design upfront, add indexes before scale
-- **Recommendation:** Don't rely on "schemaless" flexibility
-- **Confidence:** HIGH - Well-documented, mature technology
-
-### Qdrant
-- **Multitenancy:** Use tiered approach (v1.16+) for mixed tenant sizes
-- **Dimensions:** Locked on first insert, plan carefully
-- **Performance:** `is_tenant=true` parameter significantly improves tenant filtering
-- **Confidence:** HIGH - Official documentation, production-proven
-
-### LangChain/LangGraph
-- **Memory:** Checkpoint bloat is primary concern
-- **Logging:** Don't log everything, causes memory bloat
-- **Complexity:** Adds significant operational overhead
-- **Recommendation:** Only use if multi-step workflows genuinely benefit
-- **Confidence:** HIGH - Official documentation and community reports
-
-### FastAPI
-- **Performance:** Async/sync mixing is common pitfall
-- **Auth:** JWT handling requires careful security consideration
-- **Recommendation:** Profile before optimizing, don't assume async = fast
-- **Confidence:** HIGH - Mature ecosystem, well-understood patterns
+**Phase to address:**
+Initial authentication phase. Security patterns must be established before handling user data.
 
 ---
 
-## Summary: Top 5 "Must Address Early" Pitfalls
+### Pitfall 7: Async/Await in Streamlit Causes Event Loop Conflicts
 
-1. **Confusing RAG with memory (#1)** - Architectural mistake requiring fundamental redesign if wrong
-2. **Multi-tenant isolation failures (#4)** - Security critical, causes data breaches
-3. **Poor chunking strategy (#3)** - Affects all downstream quality, hard to fix after ingestion
-4. **JWT security vulnerabilities (#5)** - Entire system compromise
-5. **Memory deletion leaving orphaned data (#2)** - Accumulates silently until system fails
+**What goes wrong:**
+Using `asyncio.run()` or `await` directly in Streamlit code causes "RuntimeError: Event loop is already running" or "This event loop is already running" errors. Async FastAPI client code fails unexpectedly.
 
-**These five must be prevented in Phase 1-2. Fixing them later requires major rework or causes production incidents.**
+**Why it happens:**
+Streamlit runs inside Tornado's event loop. Calling `asyncio.run()` attempts to create a new event loop, conflicting with the existing one. Direct `await` calls fail because Streamlit functions aren't async contexts.
+
+**How to avoid:**
+1. Use synchronous HTTP clients (`requests`, not `httpx` async)
+2. If async required, use `asyncio.create_task()` and `asyncio.gather()` within existing loop
+3. For background tasks, use Streamlit's connection pooling or run in thread executor
+4. FastAPI backend should be async, but Streamlit frontend should use sync API calls
+5. If consuming async generators (SSE), convert to sync generator:
+```python
+import asyncio
+def sync_generator(async_gen):
+    loop = asyncio.new_event_loop()
+    try:
+        while True:
+            yield loop.run_until_complete(async_gen.__anext__())
+    except StopAsyncIteration:
+        pass
+    finally:
+        loop.close()
+```
+
+**Warning signs:**
+- RuntimeError about event loops when calling FastAPI endpoints
+- Async/await syntax in `.py` files containing Streamlit code
+- Using `httpx.AsyncClient` instead of `httpx.Client` or `requests`
+- SSE client libraries designed for async contexts
+
+**Phase to address:**
+Initial API integration phase. Establish sync-only pattern for Streamlit frontend before building complex features.
 
 ---
 
-## Sources Summary
+## Technical Debt Patterns
 
-**HIGH Confidence Sources (Official Documentation & GitHub Issues):**
-- Mem0 GitHub Issues (active bug reports)
-- Neo4j Official Documentation (vector index, performance)
-- Qdrant Official Documentation (multitenancy, best practices)
-- LangChain/LangGraph Official Documentation (memory, checkpoints)
-- FastAPI Official Documentation (security, async)
+Shortcuts that seem reasonable but create long-term problems.
 
-**MEDIUM Confidence Sources (Industry Analysis & Recent Blogs):**
-- Recent 2026 blog posts from practitioners (Redis, Likhon, NetApp)
-- Security analysis from established vendors (Curity, Red Sentry)
-- Academic papers (HybridRAG, RAG surveys)
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Storing JWT in session state without cookies | Fast implementation, no cookie lib needed | Users logged out on refresh, poor UX | Never - undermines authentication reliability |
+| Using `st.rerun()` in button handlers without callbacks | Direct control flow, intuitive logic | Infinite loops, brittle authentication flows | Never - callbacks are the correct pattern |
+| Synchronous blocking calls to FastAPI for slow operations | Simple request/response code | UI freezes during processing, poor UX | Only for quick operations <500ms |
+| Global session state variables without user prefixing | Easy to access, no namespacing needed | Multi-tab conflicts, state leakage between users | Never for multi-user apps |
+| Skipping file upload multipart encoding | Seems to work with simple files | Random 422 errors, fails with certain file types | Never - proper encoding required |
+| Storing entire API responses in session state | Caching avoids repeated API calls | Session state bloat, pickle vulnerabilities | Use `@st.cache_data` instead with TTL |
+| Testing only in development without real auth flow | Faster iteration during development | Auth bugs surface only in production | Only in early prototyping, must test before deployment |
 
-**Key Insight:** The pitfalls documented here are not theoretical. They're actively reported in GitHub issues (Mem0 bugs), security advisories (JWT vulnerabilities), and production post-mortems (multi-tenant breaches, memory leaks). This research has HIGH confidence for technology-specific issues and MEDIUM confidence for operational patterns.
+## Integration Gotchas
+
+Common mistakes when connecting to FastAPI backend.
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| JWT Authentication | Token in session state only, no cookie backup | Token in HTTP-only cookie + session state read for convenience |
+| SSE Streaming | Using requests.get() which doesn't stream chunks | Use sseclient-py with generator wrapping for st.write_stream() |
+| File Uploads | Passing UploadedFile object directly | Extract bytes with getvalue(), format as multipart with filename/type |
+| CORS | Forgetting to allow credentials in CORS config | FastAPI: allow_credentials=True, Streamlit: withCredentials in requests |
+| Anonymous Sessions | No backend session concept, only Streamlit state | Backend issues session ID in cookie, Streamlit reads and includes in headers |
+| API Error Handling | Displaying raw error JSON to users | Parse error response, show friendly message, log details for debugging |
+| Token Refresh | Manual refresh button or page reload required | Background refresh with httpx client, check expiry before each API call |
+| Progress Tracking | Polling backend with st.rerun() in loop | SSE endpoint for real-time updates, or task ID with status endpoint |
+
+## Performance Traps
+
+Patterns that work at small scale but fail as usage grows.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Session state bloat from caching API responses | Slow page loads, memory errors | Use @st.cache_data with TTL, store only IDs not full objects | >100KB session state per user |
+| Rerunning entire script for small updates | Laggy interactions, high CPU | Use st.fragment for isolated reruns, callbacks for state updates | Apps with >500 lines or heavy processing |
+| Synchronous API calls blocking UI thread | App freezes during backend operations | Async patterns (careful with event loop), or progress indicators + st.rerun | API calls >1 second |
+| No request timeouts on FastAPI calls | Indefinite hangs if backend is slow/down | Set requests timeout (3-30s), show error after timeout | Any production deployment |
+| Loading all documents/history on page load | Slow initial load, poor time-to-interactive | Pagination, lazy loading with "Load More" | >50 items to display |
+| Polling for updates with aggressive st.rerun() | High server load, poor scalability | SSE for real-time updates, websockets for bidirectional | >10 concurrent users |
+| Unoptimized image/file display in document list | Memory issues, browser crashes | Use thumbnails, lazy-load full images, limit resolution | >20 images/files visible |
+
+## Security Mistakes
+
+Domain-specific security issues beyond general web security.
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Storing JWT in session state without validation | Pickle deserialization RCE | Validate/sanitize claims, store only primitives |
+| Anonymous session ID in Streamlit state only | Session fixation, ID predictability | Backend-generated UUID in HTTP-only cookie |
+| No CSRF protection on state-changing operations | CSRF attacks on document uploads/deletions | Use FastAPI CSRF tokens, verify origin header |
+| Exposing API keys in Streamlit code | Key leakage in client-side code | Use st.secrets, pass only session tokens to client |
+| No rate limiting on API calls from frontend | DoS from single malicious user | Backend rate limiting by session ID or IP |
+| Trusting client-side role checks | Privilege escalation by modifying session state | Backend validates JWT roles on every request |
+| Cookies without Secure/SameSite flags | Session hijacking, CSRF | Set Secure, HttpOnly, SameSite=Lax on all cookies |
+| File upload without type/size validation | Malicious file upload, storage exhaustion | Validate on backend: whitelist extensions, size limits |
+
+## UX Pitfalls
+
+Common user experience mistakes in this domain.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| No loading indicator during streaming | Users think app is frozen, refresh page | Show spinner, then progressive display with st.write_stream |
+| Login form re-displays on every rerun during auth | Flashing UI, looks broken | Use session state flag to hide form after submission until response |
+| Error messages show stack traces or API errors | Confusion, lack of trust | Parse errors, show user-friendly messages, log details server-side |
+| Anonymous users unaware data will be lost | Surprise when data disappears, lost work | Banner: "Sign up to save your work" with clear migration promise |
+| No feedback when file upload completes | Uncertainty about success, duplicate uploads | Progress bar during upload, success message with document name |
+| Streaming text appears then disappears | Confusing, looks like bug | Use st.empty() container, update in place without clearing |
+| Logout doesn't visually reset to login screen | Users unsure if logout worked | Clear all session state, explicit st.rerun() to show login |
+| Admin features visible but disabled for regular users | Frustration, looks like broken features | Conditionally render admin UI only if admin role, don't show disabled |
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Authentication:** Looks working in single tab, but test multi-tab behavior - both tabs should share auth state via cookies
+- [ ] **JWT Expiry:** Login works, but verify token refresh logic when token expires mid-session
+- [ ] **SSE Streaming:** Text streams in dev, but verify no buffering in production with nginx/cloudflare proxy
+- [ ] **File Upload:** PDFs work, but test DOCX, large files (>10MB), special characters in filenames
+- [ ] **Error Handling:** API returns 401, but verify Streamlit doesn't crash - should show login prompt
+- [ ] **Anonymous Migration:** Registration succeeds, but verify documents actually migrated with backend query
+- [ ] **Session Cleanup:** TTL configured, but verify cleanup job actually runs and removes data from Neo4j + Qdrant
+- [ ] **Multi-User Isolation:** Users see their own documents, but verify concurrent operations don't cause race conditions
+- [ ] **Role-Based Access:** Admin UI appears, but verify backend enforces role checks on API endpoints
+- [ ] **Token Storage:** Auth works, but verify tokens are in HTTP-only cookies, not localStorage or session state only
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Token lost on refresh | LOW | Implement cookie storage, migrate existing users with re-login banner |
+| Infinite rerun loop | LOW | Add state guard flag, refactor to callback pattern |
+| SSE buffering | MEDIUM | Add sseclient-py wrapper, update generator pattern, configure proxy |
+| Orphaned anonymous data | HIGH | Write migration script to match anonymous docs to users by timestamp/IP, manual review |
+| File upload broken | LOW | Add proper multipart encoding, test with all supported file types |
+| Pickle vulnerability exploited | HIGH | Audit all session state usage, sanitize existing data, add validation, security review |
+| Event loop conflicts | MEDIUM | Remove all async code from Streamlit, convert to sync with thread executors |
+| Session state bloat | MEDIUM | Implement cache clearing, add TTL to large objects, use external cache (Redis) |
+| No CSRF protection | MEDIUM | Add FastAPI CSRF middleware, update frontend to include tokens |
+| Multi-tab auth conflicts | LOW | Move auth state from session state to cookies, verify shared cookie access |
+
+## Pitfall-to-Phase Mapping
+
+How roadmap phases should address these pitfalls.
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| JWT token lost on refresh | Phase 1: Auth Implementation | Test: Refresh browser after login, verify still authenticated |
+| Infinite rerun loop | Phase 1: Auth Implementation | Code review: No st.rerun() in button handlers without guards |
+| SSE buffering | Phase 2: Streaming Implementation | Test: Watch network tab during streaming, verify incremental chunks |
+| Anonymous migration failure | Phase 2: Multi-User Core | Test: Create docs as anon, register, verify docs appear in authenticated view |
+| File upload 422 error | Phase 1: Document Upload | Test: Upload PDF, DOCX, large file, verify all succeed with 200 |
+| Pickle vulnerability | Phase 1: Auth Implementation | Code review: All session state writes validated, no raw objects |
+| Event loop conflicts | Phase 1: API Integration | Test: All API calls work, no async/await in Streamlit code |
+| Session state bloat | Phase 3: Performance Optimization | Monitor: Session state size <50KB per user |
+| CSRF vulnerability | Phase 1: Auth Implementation | Security test: Attempt CSRF attack, verify rejection |
+| Multi-tab auth conflicts | Phase 1: Auth Implementation | Test: Login in tab A, open tab B, verify authenticated in both |
+
+## Sources
+
+**Streamlit + FastAPI Integration:**
+- [Streamlit 2026 Release Notes](https://docs.streamlit.io/develop/quick-reference/release-notes/2026)
+- [FastAPI Backend → Streamlit Frontend Discussion](https://discuss.streamlit.io/t/fastapi-backend-streamlit-frontend/55460)
+- [Issue with Integrating FastAPI with Streamlit](https://discuss.streamlit.io/t/issue-with-integrating-fastapi-with-streamlit/66888)
+- [My Experience Building A FastAPI + Streamlit App](https://pybit.es/articles/my-experience-building-a-fastapi-streamlit-app/)
+- [From Backend To Frontend: Connecting FastAPI And Streamlit](https://pybit.es/articles/from-backend-to-frontend-connecting-fastapi-and-streamlit/)
+
+**Session State & Authentication:**
+- [Streamlit Session State Documentation](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state)
+- [Add Statefulness to Apps](https://docs.streamlit.io/develop/concepts/architecture/session-state)
+- [Why Session State is Not Persisting Between Refresh](https://discuss.streamlit.io/t/why-session-state-is-not-persisting-between-refresh/32020)
+- [Session State Not Persisting After Redirect - MSAL Auth Issue](https://discuss.streamlit.io/t/session-state-not-persisting-after-redirect-msal-authentication-issue-in-streamlit/94721)
+- [How I Solved Streamlit Session Persistence](https://dev.to/hendrixaidev/how-i-solved-streamlit-session-persistence-after-3-failed-attempts-b4c)
+- [Implement JWT Authentication for Streamlit](https://blog.yusufberki.net/implement-jwt-authentication-for-the-streamlit-application-2e3b0ef884ef)
+
+**SSE Streaming:**
+- [Bridging LangGraph and Streamlit: Streaming Graph State](https://medium.com/@yigitbekir/bridging-langgraph-and-streamlit-a-practical-approach-to-streaming-graph-state-13db0999c80d)
+- [FASTAPI-SSE-Event-Streaming with Streamlit](https://github.com/sarthakkaushik/FASTAPI-SSE-Event-Streaming-with-Streamlit/blob/master/README.md)
+- [st.write_stream Documentation](https://docs.streamlit.io/develop/api-reference/write-magic/st.write_stream)
+- [Fixing Slow SSE Streaming in Next.js and Vercel](https://medium.com/@oyetoketoby80/fixing-slow-sse-server-sent-events-streaming-in-next-js-and-vercel-99f42fbdb996)
+
+**Execution Model & Reruns:**
+- [Working with Streamlit's Execution Model](https://docs.streamlit.io/develop/concepts/architecture)
+- [st.rerun Documentation](https://docs.streamlit.io/develop/api-reference/execution-flow/st.rerun)
+- [Using st.rerun in Button Causes Infinite Loop](https://github.com/streamlit/streamlit/issues/9232)
+- [st.rerun Not Updating Button State](https://github.com/streamlit/streamlit/issues/7662)
+- [Streamlit Unit Testing - Infinite Loop with st.rerun](https://discuss.streamlit.io/t/streamlit-unit-testing-infinite-loop-with-st-rerun/56268)
+
+**File Uploads:**
+- [Post Request with file_uploader Object Throws 422](https://discuss.streamlit.io/t/post-request-with-parameter-as-a-streamlit-file-uploader-object-for-a-pdf-throws-422-unprocessable-entity-on-fastapi/45020)
+- [FastAPI Request Files Documentation](https://fastapi.tiangolo.com/tutorial/request-files/)
+- [How to Implement File Uploads in FastAPI](https://oneuptime.com/blog/post/2026-01-26-fastapi-file-uploads/view)
+- [Serving ML Model with FastAPI and Streamlit](https://testdriven.io/blog/fastapi-streamlit/)
+
+**Cookies & Security:**
+- [Cookies Support in Streamlit](https://discuss.streamlit.io/t/cookies-support-in-streamlit/16144)
+- [Ultimate Guide to Securing JWT with httpOnly Cookies](https://www.wisp.blog/blog/ultimate-guide-to-securing-jwt-authentication-with-httponly-cookies)
+- [streamlit-jwt-authenticator Package](https://pypi.org/project/streamlit-jwt-authenticator/)
+- [Some Code for Cookie-based Session Management](https://discuss.streamlit.io/t/some-code-for-cookie-based-session-management/54200)
+
+**Deployment & Secrets:**
+- [Streamlit Secrets Management](https://docs.streamlit.io/develop/concepts/connections/secrets-management)
+- [Managing Secrets When Deploying Your App](https://docs.streamlit.io/deploy/concepts/secrets)
+- [Secrets Management for Community Cloud](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management)
+
+**RBAC & Testing:**
+- [Role Based Authentication Discussion](https://discuss.streamlit.io/t/role-based-authentication/36598)
+- [streamlit-mock Package for Testing](https://pypi.org/project/streamlit-mock/)
+- [Mastering Integration Testing with FastAPI](https://alex-jacobs.com/posts/fastapitests/)
+
+---
+*Pitfalls research for: Streamlit Frontend with FastAPI Backend Integration*
+*Researched: 2026-02-05*
