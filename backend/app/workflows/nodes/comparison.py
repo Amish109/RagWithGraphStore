@@ -8,9 +8,7 @@ import json
 import logging
 from typing import Dict, List
 
-from langchain_openai import ChatOpenAI
-
-from app.config import settings
+from app.services.llm_provider import get_llm
 from app.workflows.state import DocumentComparisonState
 
 logger = logging.getLogger(__name__)
@@ -166,11 +164,7 @@ If documents don't contain enough information to compare, provide what you can a
 
     try:
         # Create LLM instance for analysis
-        llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
-            temperature=0.3,  # Slightly creative for good analysis
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
+        llm = get_llm(temperature=0.3)
 
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         analysis = parse_analysis_response(response.content)

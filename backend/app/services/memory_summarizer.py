@@ -13,10 +13,9 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from langchain_openai import ChatOpenAI
-
 from app.config import settings
 from app.db.mem0_client import get_mem0
+from app.services.llm_provider import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +54,7 @@ class MemorySummarizer:
         self.recent_to_keep = recent_to_keep
 
         # LLM for summarization (slightly creative for good summaries)
-        self.llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
-            temperature=0.3,
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
+        self.llm = get_llm(temperature=0.3)
 
         logger.info(
             f"MemorySummarizer initialized: max={self.max_token_limit}, "

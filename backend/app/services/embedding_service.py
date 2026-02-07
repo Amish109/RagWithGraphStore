@@ -1,19 +1,18 @@
-"""OpenAI embedding service with dimension validation.
+"""Embedding service with dimension validation and multi-provider support.
 
 This module provides async embedding generation for document indexing
-and query embedding. Includes startup validation to prevent dimension mismatch.
+and query embedding. Supports OpenAI and Ollama providers.
+Includes startup validation to prevent dimension mismatch.
 """
 
-import asyncio
 from typing import List
 
-from openai import AsyncOpenAI
-
 from app.config import settings
+from app.services.llm_provider import get_embedding_model
 
 
-# Initialize async OpenAI client
-openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize embedding model from configured provider
+_embedding_model = get_embedding_model()
 
 
 async def generate_embeddings(texts: List[str]) -> List[List[float]]:
@@ -25,20 +24,13 @@ async def generate_embeddings(texts: List[str]) -> List[List[float]]:
     Returns:
         List of embedding vectors (each vector is a list of floats).
     """
-    response = await openai_client.embeddings.create(
-        input=texts,
-        model=settings.OPENAI_EMBEDDING_MODEL,
-        encoding_format="float",
-    )
-
-    # Extract embeddings in order (response.data is sorted by index)
-    return [item.embedding for item in response.data]
+    return await _embedding_model.aembed_documents(texts)
 
 
 async def generate_query_embedding(query: str) -> List[float]:
     """Generate embedding for a single query string.
 
-    Convenience wrapper around generate_embeddings for single queries.
+    Convenience wrapper around the embedding model for single queries.
 
     Args:
         query: The query text to embed.
@@ -46,11 +38,10 @@ async def generate_query_embedding(query: str) -> List[float]:
     Returns:
         Embedding vector as list of floats.
     """
-    embeddings = await generate_embeddings([query])
-    return embeddings[0]
+    return await _embedding_model.aembed_query(query)
 
 
-def validate_embedding_dimensions() -> None:
+async def validate_embedding_dimensions() -> None:
     """Validate embedding dimensions match configuration at startup.
 
     CRITICAL: Prevents Pitfall #3 - Dimension mismatch causes cryptic errors.
@@ -59,13 +50,12 @@ def validate_embedding_dimensions() -> None:
     Raises:
         ValueError: If actual embedding dimensions don't match configured dimensions.
     """
-    # Run async embedding generation in sync context
-    embeddings = asyncio.run(generate_embeddings(["test"]))
+    embeddings = await generate_embeddings(["test"])
     actual_dim = len(embeddings[0])
-    expected_dim = settings.OPENAI_EMBEDDING_DIMENSIONS
+    expected_dim = settings.EMBEDDING_DIMENSIONS
 
     if actual_dim != expected_dim:
         raise ValueError(
             f"Embedding dimension mismatch! Expected {expected_dim}, got {actual_dim}. "
-            f"Check OPENAI_EMBEDDING_MODEL and OPENAI_EMBEDDING_DIMENSIONS config."
+            f"Check your embedding model and dimensions config for provider '{settings.EMBEDDING_PROVIDER}'."
         )

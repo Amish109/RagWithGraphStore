@@ -1,25 +1,27 @@
 # Core framework
-fastapi>=0.126.0
-pydantic>=2.7.0
-pydantic-settings>=2.0.0
+fastapi
+pydantic[email]
+pydantic-settings
 uvicorn[standard]
 
 # Memory & databases
 mem0ai
-neo4j>=6.1.0
-qdrant-client>=1.16.2
+neo4j
+qdrant-client
 
 # LLM orchestration
-langchain>=1.0
-langchain-openai>=1.1.7
+langchain
+langchain-openai
+langchain-anthropic
+langchain-ollama
 langchain-text-splitters
 openai
 
 # LangGraph workflows
-langgraph>=1.0
-langgraph-checkpoint-postgres>=3.0.4
-psycopg[binary]>=3.0
-neo4j-graphrag-python
+langgraph
+langgraph-checkpoint-postgres
+psycopg[binary]
+neo4j-graphrag
 
 # Document processing
 pymupdf4llm
@@ -29,11 +31,16 @@ python-docx
 pyjwt
 pwdlib[argon2]
 
+# Redis & scheduling
+redis
+apscheduler
+
 # Utilities
+python-multipart
 python-dotenv
 
 # SSE streaming
-sse-starlette>=2.0.0
+sse-starlette
 
 # Development dependencies
 pytest

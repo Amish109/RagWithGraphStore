@@ -55,11 +55,35 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: Optional[str] = None  # For Qdrant Cloud
     QDRANT_COLLECTION: str = "documents"
 
-    # OpenAI Configuration
-    OPENAI_API_KEY: str  # REQUIRED
+    # LLM Provider Selection
+    # Supported: "openai", "ollama", "anthropic"
+    # Use "openai" + OPENAI_BASE_URL for any OpenAI-compatible API (Groq, DeepSeek, etc.)
+    LLM_PROVIDER: str = "openai"
+    EMBEDDING_PROVIDER: str = "openai"  # "openai" or "ollama" (Anthropic has no embeddings)
+
+    # OpenAI Configuration (used when provider = "openai")
+    OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_EMBEDDING_DIMENSIONS: int = 1536
+    OPENAI_BASE_URL: Optional[str] = None  # Custom base URL (Azure, Groq, DeepSeek, etc.)
+
+    # Anthropic Configuration (used when LLM_PROVIDER = "anthropic")
+    ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-5-20250929"
+
+    # Ollama Configuration (used when provider = "ollama")
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3.2"
+    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+    OLLAMA_EMBEDDING_DIMENSIONS: int = 768
+
+    @property
+    def EMBEDDING_DIMENSIONS(self) -> int:
+        """Return embedding dimensions for the active provider."""
+        if self.EMBEDDING_PROVIDER.lower() == "ollama":
+            return self.OLLAMA_EMBEDDING_DIMENSIONS
+        return self.OPENAI_EMBEDDING_DIMENSIONS
 
     # Document Processing
     CHUNK_SIZE: int = 1000

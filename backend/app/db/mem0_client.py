@@ -22,21 +22,56 @@ def init_mem0() -> Memory:
     Returns:
         Configured Mem0 Memory instance.
     """
-    config = {
-        "version": "v1.1",
-        "llm": {
+    # Build LLM config based on provider
+    llm_provider = settings.LLM_PROVIDER.lower()
+    if llm_provider == "ollama":
+        llm_config = {
+            "provider": "ollama",
+            "config": {
+                "model": settings.OLLAMA_MODEL,
+                "temperature": 0.1,
+                "ollama_base_url": settings.OLLAMA_BASE_URL,
+            },
+        }
+    elif llm_provider == "anthropic":
+        llm_config = {
+            "provider": "anthropic",
+            "config": {
+                "model": settings.ANTHROPIC_MODEL,
+                "temperature": 0.1,
+            },
+        }
+    else:
+        llm_config = {
             "provider": "openai",
             "config": {
                 "model": settings.OPENAI_MODEL,
                 "temperature": 0.1,
             },
-        },
-        "embedder": {
+        }
+
+    # Build embedder config based on provider
+    embedding_provider = settings.EMBEDDING_PROVIDER.lower()
+    if embedding_provider == "ollama":
+        embedder_config = {
+            "provider": "ollama",
+            "config": {
+                "model": settings.OLLAMA_EMBEDDING_MODEL,
+                "ollama_base_url": settings.OLLAMA_BASE_URL,
+            },
+        }
+    else:
+        embedder_config = {
             "provider": "openai",
             "config": {
                 "model": settings.OPENAI_EMBEDDING_MODEL,
             },
-        },
+        }
+
+    config = {
+        "version": "v1.1",
+        "llm": llm_config,
+        "embedder": embedder_config,
         "vector_store": {
             "provider": "qdrant",
             "config": {

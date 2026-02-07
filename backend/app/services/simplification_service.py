@@ -17,9 +17,8 @@ import logging
 from typing import Dict, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
-from app.config import settings
+from app.services.llm_provider import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +64,7 @@ async def simplify_text(
     """
     level_config = SIMPLIFICATION_LEVELS.get(level, SIMPLIFICATION_LEVELS["general"])
 
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=0.4,  # Slight creativity for explanations
-        openai_api_key=settings.OPENAI_API_KEY,
-    )
+    llm = get_llm(temperature=0.4)
 
     # Stage 1: Initial simplification
     if context:

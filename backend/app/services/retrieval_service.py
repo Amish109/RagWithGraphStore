@@ -9,9 +9,9 @@ import json
 from typing import Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
 from app.config import settings
+from app.services.llm_provider import get_llm
 from app.db.neo4j_client import neo4j_driver
 from app.db.qdrant_client import search_similar_chunks, qdrant_client
 from app.models.schemas import HighlightedCitation
@@ -221,11 +221,7 @@ async def extract_highlighted_citations(
     Returns:
         List of HighlightedCitation objects with exact text passages and offsets.
     """
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=0,
-        openai_api_key=settings.OPENAI_API_KEY,
-    )
+    llm = get_llm(temperature=0)
 
     citations = []
 

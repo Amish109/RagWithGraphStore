@@ -18,10 +18,10 @@ import logging
 from typing import Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
 from app.config import settings
 from app.db.neo4j_client import neo4j_driver
+from app.services.llm_provider import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -122,11 +122,7 @@ async def summarize_document(
     # Get summary prompt
     summary_prompt = SUMMARY_PROMPTS.get(summary_type, SUMMARY_PROMPTS["brief"])
 
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=0.3,  # Slight creativity for summaries
-        openai_api_key=settings.OPENAI_API_KEY,
-    )
+    llm = get_llm(temperature=0.3)
 
     # For short documents, use "stuff" method (single prompt)
     if len(document_text) < 10000:
@@ -220,11 +216,7 @@ async def generate_document_summary(chunks: List[str], max_length: int = 500) ->
         return ""
 
     try:
-        llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
-            temperature=0,
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
+        llm = get_llm(temperature=0)
 
         # For small documents, use direct "stuff" method
         if len(chunks) <= 4:

@@ -1,8 +1,8 @@
-"""Confidence scoring service for LLM responses using OpenAI logprobs.
+"""Confidence scoring service for LLM responses.
 
-This module provides confidence calculation for query responses by analyzing
-the log probabilities (logprobs) returned by OpenAI's API. Users can see
-how confident the model is in its response and decide when to verify answers.
+This module provides confidence calculation for query responses.
+When the provider supports logprobs (OpenAI), uses token-level probability data.
+When logprobs are unavailable (Ollama), falls back to self-assessment prompting.
 
 Phase 5 - Success Criteria #6: System provides confidence scores on responses
 so users know when to verify answers.
@@ -12,9 +12,8 @@ from typing import Dict, List, Optional
 
 import numpy as np
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
-from app.config import settings
+from app.services.llm_provider import get_llm, supports_logprobs
 
 
 def calculate_confidence_from_logprobs(logprobs: List[Dict]) -> dict:
@@ -121,13 +120,10 @@ def calculate_confidence_from_logprobs(logprobs: List[Dict]) -> dict:
 async def generate_answer_with_confidence(
     query: str, context: List[Dict]
 ) -> dict:
-    """Generate answer using LLM with confidence score from logprobs.
+    """Generate answer using LLM with confidence scoring.
 
-    Creates a ChatOpenAI instance with logprobs=True to get token-level
-    probability data. Uses the same prompt pattern as generation_service.py
-    for consistency.
-
-    CRITICAL: Must use ChatOpenAI with logprobs=True enabled.
+    When the provider supports logprobs (OpenAI), uses token-level probability data.
+    When logprobs are unavailable (Ollama), falls back to LLM self-assessment.
 
     Args:
         query: User's question.
@@ -146,13 +142,10 @@ async def generate_answer_with_confidence(
         ]
     )
 
-    # Create LLM with logprobs enabled
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=0,
-        openai_api_key=settings.OPENAI_API_KEY,
-        logprobs=True,  # Enable log probabilities for confidence scoring
-    )
+    use_logprobs = supports_logprobs()
+
+    # Create LLM (with logprobs if supported)
+    llm = get_llm(temperature=0, logprobs=use_logprobs)
 
     # Same prompt template as generation_service.py for consistency
     prompt = ChatPromptTemplate.from_messages(
@@ -179,26 +172,101 @@ Answer:""",
         ]
     )
 
-    # Generate response with logprobs
+    # Generate response
     messages = prompt.format_messages(context=context_text, query=query)
     response = await llm.ainvoke(messages)
 
-    # Extract logprobs from response metadata
-    logprobs_data = []
-    if hasattr(response, "response_metadata") and response.response_metadata:
-        logprobs_content = response.response_metadata.get("logprobs", {})
-        if logprobs_content:
-            content_logprobs = logprobs_content.get("content", [])
-            logprobs_data = [
-                {"token": item.get("token"), "logprob": item.get("logprob")}
-                for item in content_logprobs
-                if item.get("logprob") is not None
-            ]
+    if use_logprobs:
+        # Extract logprobs from response metadata (OpenAI)
+        logprobs_data = []
+        if hasattr(response, "response_metadata") and response.response_metadata:
+            logprobs_content = response.response_metadata.get("logprobs", {})
+            if logprobs_content:
+                content_logprobs = logprobs_content.get("content", [])
+                logprobs_data = [
+                    {"token": item.get("token"), "logprob": item.get("logprob")}
+                    for item in content_logprobs
+                    if item.get("logprob") is not None
+                ]
 
-    # Calculate confidence from logprobs
-    confidence = calculate_confidence_from_logprobs(logprobs_data)
+        confidence = calculate_confidence_from_logprobs(logprobs_data)
+    else:
+        # Fallback: LLM self-assessment for providers without logprobs
+        confidence = await _estimate_confidence_via_self_assessment(
+            llm, response.content, context_text, query
+        )
 
     return {
         "answer": response.content,
         "confidence": confidence,
+    }
+
+
+async def _estimate_confidence_via_self_assessment(
+    llm, answer: str, context: str, query: str
+) -> dict:
+    """Estimate confidence via LLM self-assessment when logprobs are unavailable.
+
+    Asks the LLM to rate its own confidence based on how well the context
+    supports its answer. This is a heuristic fallback, not as precise as logprobs.
+
+    Args:
+        llm: The LLM instance to use.
+        answer: The generated answer to assess.
+        context: The context used to generate the answer.
+        query: The original user query.
+
+    Returns:
+        Confidence dict matching the logprobs format.
+    """
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """You are a confidence assessment expert. Rate how well the given answer is supported by the provided context.
+Respond with ONLY a single number between 0 and 100 representing your confidence percentage. No other text.""",
+            ),
+            (
+                "user",
+                """Context:
+{context}
+
+Question: {query}
+
+Answer given: {answer}
+
+Confidence (0-100):""",
+            ),
+        ]
+    )
+
+    try:
+        messages = prompt.format_messages(context=context[:2000], query=query, answer=answer)
+        response = await llm.ainvoke(messages)
+        score = float(response.content.strip().rstrip("%")) / 100.0
+        score = min(max(score, 0.0), 1.0)
+    except (ValueError, TypeError):
+        score = 0.5
+
+    if score >= 0.85:
+        level = "high"
+        interpretation = "The model is highly confident in this response."
+    elif score >= 0.60:
+        level = "medium"
+        interpretation = "The model is moderately confident. Consider verifying key claims."
+    else:
+        level = "low"
+        interpretation = "The model has low confidence. Please verify this response with authoritative sources."
+
+    return {
+        "score": round(score, 3),
+        "level": level,
+        "interpretation": interpretation,
+        "metrics": {
+            "method": "self_assessment",
+            "average_probability": None,
+            "geometric_mean": None,
+            "perplexity": None,
+            "tokens_analyzed": 0,
+        },
     }

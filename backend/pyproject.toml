@@ -10,23 +10,41 @@ authors = [
 ]
 
 dependencies = [
-    "fastapi>=0.126.0",
-    "pydantic>=2.7.0",
-    "pydantic-settings>=2.0.0",
+    # Core framework
+    "fastapi",
+    "pydantic[email]",
+    "pydantic-settings",
     "uvicorn[standard]",
+    # Memory & databases
     "mem0ai",
-    "neo4j>=6.1.0",
-    "qdrant-client>=1.16.2",
-    "langchain>=1.0",
-    "langchain-openai>=1.1.7",
+    "neo4j",
+    "qdrant-client",
+    # LLM orchestration
+    "langchain",
+    "langchain-openai",
+    "langchain-anthropic",
+    "langchain-ollama",
+    "langchain-text-splitters",
+    "openai",
+    # LangGraph workflows
+    "langgraph",
+    "langgraph-checkpoint-postgres",
+    "psycopg[binary]",
+    "neo4j-graphrag",
+    # Document processing
     "pymupdf4llm",
     "python-docx",
+    # Authentication
     "pyjwt",
     "pwdlib[argon2]",
+    # Redis & scheduling
+    "redis",
+    "apscheduler",
+    # Form data & utilities
+    "python-multipart",
     "python-dotenv",
-    "openai",
-    "redis>=5.0.0",
-    "apscheduler>=3.10.0",
+    # SSE streaming
+    "sse-starlette",
 ]
 
 [project.optional-dependencies]

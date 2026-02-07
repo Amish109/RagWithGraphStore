@@ -1,6 +1,6 @@
 """LLM generation service for document Q&A with strict context constraints.
 
-This module provides answer generation using OpenAI models via LangChain.
+This module provides answer generation using LangChain with configurable LLM provider.
 Implements strict "I don't know" fallback to prevent hallucination.
 Supports both synchronous and streaming responses.
 """
@@ -8,17 +8,12 @@ Supports both synchronous and streaming responses.
 from typing import AsyncGenerator, Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
-from app.config import settings
+from app.services.llm_provider import get_llm
 
 
 # Initialize LLM with deterministic settings
-llm = ChatOpenAI(
-    model=settings.OPENAI_MODEL,
-    temperature=0,  # Deterministic for consistency
-    openai_api_key=settings.OPENAI_API_KEY,
-)
+llm = get_llm(temperature=0)
 
 
 async def generate_answer(query: str, context: List[Dict]) -> str:
@@ -112,12 +107,7 @@ Answer:""")
     messages = prompt.format_messages(context=context_text, query=query)
 
     # Create streaming LLM instance
-    streaming_llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=0,
-        openai_api_key=settings.OPENAI_API_KEY,
-        streaming=True,  # Enable streaming for token-by-token output
-    )
+    streaming_llm = get_llm(temperature=0, streaming=True)
 
     # Stream tokens using astream
     async for chunk in streaming_llm.astream(messages):

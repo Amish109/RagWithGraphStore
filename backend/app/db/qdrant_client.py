@@ -52,8 +52,8 @@ def init_qdrant_collection() -> None:
     Once created, dimension cannot be changed - requires recreation.
 
     Collection configuration:
-    - size: OPENAI_EMBEDDING_DIMENSIONS (1536 for text-embedding-3-small)
-    - distance: COSINE (standard for OpenAI embeddings)
+    - size: EMBEDDING_DIMENSIONS (varies by provider and model)
+    - distance: COSINE (standard for semantic similarity)
     - Payload indexes on user_id and document_id for multi-tenant filtering
     """
     collection_name = settings.QDRANT_COLLECTION
@@ -68,8 +68,8 @@ def init_qdrant_collection() -> None:
     qdrant_client.create_collection(
         collection_name=collection_name,
         vectors_config=VectorParams(
-            size=settings.OPENAI_EMBEDDING_DIMENSIONS,  # MUST match embedding model
-            distance=Distance.COSINE,  # Cosine similarity for OpenAI embeddings
+            size=settings.EMBEDDING_DIMENSIONS,  # MUST match embedding model
+            distance=Distance.COSINE,  # Cosine similarity for embeddings
         ),
         optimizers_config=OptimizersConfigDiff(
             indexing_threshold=10000,  # Start indexing after 10k vectors
@@ -89,7 +89,7 @@ def init_qdrant_collection() -> None:
         field_schema="keyword",
     )
 
-    print(f"Qdrant collection '{collection_name}' created with dimension {settings.OPENAI_EMBEDDING_DIMENSIONS}")
+    print(f"Qdrant collection '{collection_name}' created with dimension {settings.EMBEDDING_DIMENSIONS}")
 
 
 def upsert_chunks(chunks: List[Dict]) -> None:

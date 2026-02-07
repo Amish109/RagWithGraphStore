@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     # Validate embedding dimensions at startup
     from app.services.embedding_service import validate_embedding_dimensions
 
-    validate_embedding_dimensions()
+    await validate_embedding_dimensions()
     print("Embedding dimensions validated")
 
     # Start cleanup scheduler for anonymous data TTL
