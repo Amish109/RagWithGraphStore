@@ -38,9 +38,10 @@ def store_document_in_neo4j(
     """
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
         # Create Document node with OWNS relationship to User
+        # MERGE ensures anonymous users get auto-created as User nodes
         session.run(
             """
-            MATCH (u:User {id: $user_id})
+            MERGE (u:User {id: $user_id})
             CREATE (d:Document {
                 id: $document_id,
                 filename: $filename,

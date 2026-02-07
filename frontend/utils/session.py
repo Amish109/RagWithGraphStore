@@ -39,6 +39,20 @@ def init_session_state() -> None:
     if "session_type" not in st.session_state:
         st.session_state.session_type = "anonymous"
 
+    # Chat message history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Cached document list
+    if "documents" not in st.session_state:
+        st.session_state.documents = []
+
+    # Anonymous session ID (persisted from backend cookie)
+    # Restore from URL query params if available (survives page refresh)
+    if "anon_session_id" not in st.session_state:
+        saved_sid = st.query_params.get("sid")
+        st.session_state.anon_session_id = saved_sid
+
 
 def get_user_info() -> dict:
     """Return user details from session state.

@@ -1,18 +1,23 @@
-"""API client wrapper using httpx AsyncClient.
+"""API client wrapper using httpx Client (synchronous).
 
-Provides a cached singleton AsyncClient for all backend API calls.
-Uses @st.cache_resource to prevent connection leaks.
+Uses synchronous httpx.Client to avoid asyncio event loop conflicts with Streamlit.
+Manages anonymous session cookies via st.session_state for per-user isolation.
 
 Backend endpoint contract:
 - POST /api/v1/auth/login - form data (username=email, password), returns TokenPair
 - POST /api/v1/auth/register - JSON {email, password}, returns TokenPair
 - POST /api/v1/auth/logout - requires Bearer token, returns {message}
 - POST /api/v1/auth/refresh - JSON {refresh_token}, returns TokenPair
+- POST /api/v1/documents/upload - multipart file upload, returns DocumentUploadResponse
+- GET /api/v1/documents/ - list user documents, returns List[DocumentInfo]
+- GET /api/v1/documents/{id}/status - processing status, returns TaskStatusResponse
+- DELETE /api/v1/documents/{id} - delete document, returns MessageResponse
+- POST /api/v1/query/ - query documents, returns QueryResponse
+- POST /api/v1/query/stream - streaming query via SSE
 """
 
-import asyncio
 import os
-from typing import Optional
+from typing import Generator, List, Optional
 
 import httpx
 import streamlit as st
@@ -24,47 +29,69 @@ load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 
-@st.cache_resource
-def get_api_client() -> httpx.AsyncClient:
-    """Create singleton AsyncClient for all API calls.
+def _get_headers() -> dict:
+    """Build request headers with auth token or session cookie."""
+    headers = {}
+    token = st.session_state.get("access_token")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
-    Uses @st.cache_resource to ensure single instance per Streamlit app.
-    This prevents connection leaks from creating new clients per request.
 
-    Returns:
-        httpx.AsyncClient configured with base URL and timeout.
+def _get_cookies() -> dict:
+    """Get session cookie for anonymous users."""
+    session_id = st.session_state.get("anon_session_id")
+    if session_id:
+        return {"session_id": session_id}
+    return {}
+
+
+def _save_session_cookie(response: httpx.Response) -> None:
+    """Save anonymous session cookie from response to session state and URL."""
+    session_id = response.cookies.get("session_id")
+    if session_id:
+        st.session_state.anon_session_id = session_id
+        # Persist in URL query params so it survives page refresh
+        st.query_params["sid"] = session_id
+
+
+def _request(method: str, url: str, **kwargs) -> httpx.Response:
+    """Make an HTTP request with auth headers and session cookies.
+
+    Automatically saves any session_id cookie from the response.
     """
-    return httpx.AsyncClient(
-        base_url=API_BASE_URL,
-        timeout=30.0,
-        headers={"Content-Type": "application/json"},
-    )
+    headers = _get_headers()
+    headers.update(kwargs.pop("headers", {}))
+    cookies = _get_cookies()
+    cookies.update(kwargs.pop("cookies", {}))
+
+    with httpx.Client(base_url=API_BASE_URL, timeout=30.0) as client:
+        response = client.request(
+            method, url, headers=headers, cookies=cookies, **kwargs
+        )
+        _save_session_cookie(response)
+        return response
 
 
-async def _login_async(email: str, password: str) -> Optional[dict]:
-    """Call backend login endpoint (async).
+# =============================================================================
+# Auth endpoints
+# =============================================================================
+
+def login(email: str, password: str) -> Optional[dict]:
+    """Call backend login endpoint.
 
     Uses OAuth2 form data format as expected by backend.
-
-    Args:
-        email: User's email address.
-        password: User's password.
-
-    Returns:
-        Token pair dict with access_token, refresh_token, token_type on success.
-        None on failure.
     """
-    client = get_api_client()
     try:
-        response = await client.post(
+        response = _request(
+            "POST",
             "/api/v1/auth/login",
-            data={"username": email, "password": password},  # OAuth2 form format
+            data={"username": email, "password": password},
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as e:
-        # Extract error detail from response if available
         try:
             detail = e.response.json().get("detail", "Login failed")
         except Exception:
@@ -76,37 +103,11 @@ async def _login_async(email: str, password: str) -> Optional[dict]:
         return None
 
 
-def login(email: str, password: str) -> Optional[dict]:
-    """Synchronous wrapper for async login.
-
-    Streamlit callbacks are synchronous, so we need this wrapper.
-
-    Args:
-        email: User's email address.
-        password: User's password.
-
-    Returns:
-        Token pair dict on success, None on failure.
-    """
-    return asyncio.run(_login_async(email, password))
-
-
-async def _register_async(email: str, password: str) -> Optional[dict]:
-    """Call backend register endpoint (async).
-
-    Uses JSON body format as expected by backend.
-
-    Args:
-        email: User's email address.
-        password: User's password.
-
-    Returns:
-        Token pair dict with access_token, refresh_token, token_type on success.
-        None on failure.
-    """
-    client = get_api_client()
+def register(email: str, password: str) -> Optional[dict]:
+    """Call backend register endpoint."""
     try:
-        response = await client.post(
+        response = _request(
+            "POST",
             "/api/v1/auth/register",
             json={"email": email, "password": password},
         )
@@ -124,33 +125,11 @@ async def _register_async(email: str, password: str) -> Optional[dict]:
         return None
 
 
-def register(email: str, password: str) -> Optional[dict]:
-    """Synchronous wrapper for async register.
-
-    Args:
-        email: User's email address.
-        password: User's password.
-
-    Returns:
-        Token pair dict on success, None on failure.
-    """
-    return asyncio.run(_register_async(email, password))
-
-
-async def _logout_async(access_token: str) -> bool:
-    """Call backend logout endpoint (async).
-
-    Requires Bearer token authorization.
-
-    Args:
-        access_token: JWT access token to invalidate.
-
-    Returns:
-        True on successful logout, False on failure.
-    """
-    client = get_api_client()
+def logout(access_token: str) -> bool:
+    """Call backend logout endpoint."""
     try:
-        response = await client.post(
+        response = _request(
+            "POST",
             "/api/v1/auth/logout",
             headers={
                 "Authorization": f"Bearer {access_token}",
@@ -159,56 +138,136 @@ async def _logout_async(access_token: str) -> bool:
         )
         response.raise_for_status()
         return True
-    except httpx.HTTPStatusError:
-        return False
-    except httpx.RequestError:
+    except (httpx.HTTPStatusError, httpx.RequestError):
         return False
 
 
-def logout(access_token: str) -> bool:
-    """Synchronous wrapper for async logout.
-
-    Args:
-        access_token: JWT access token to invalidate.
-
-    Returns:
-        True on successful logout, False on failure.
-    """
-    return asyncio.run(_logout_async(access_token))
-
-
-async def _refresh_tokens_async(refresh_token: str) -> Optional[dict]:
-    """Call backend refresh endpoint (async).
-
-    Exchanges refresh token for new token pair.
-
-    Args:
-        refresh_token: Current refresh token.
-
-    Returns:
-        New token pair dict on success, None on failure.
-    """
-    client = get_api_client()
+def refresh_tokens(refresh_token: str) -> Optional[dict]:
+    """Call backend refresh endpoint."""
     try:
-        response = await client.post(
+        response = _request(
+            "POST",
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_token},
         )
         response.raise_for_status()
         return response.json()
-    except httpx.HTTPStatusError:
-        return None
-    except httpx.RequestError:
+    except (httpx.HTTPStatusError, httpx.RequestError):
         return None
 
 
-def refresh_tokens(refresh_token: str) -> Optional[dict]:
-    """Synchronous wrapper for async refresh.
+# =============================================================================
+# Document endpoints
+# =============================================================================
 
-    Args:
-        refresh_token: Current refresh token.
+def upload_document(
+    file_bytes: bytes, filename: str, content_type: str
+) -> Optional[dict]:
+    """Upload a document to the backend."""
+    try:
+        response = _request(
+            "POST",
+            "/api/v1/documents/upload",
+            files={"file": (filename, file_bytes, content_type)},
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        try:
+            detail = e.response.json().get("detail", "Upload failed")
+        except Exception:
+            detail = f"HTTP {e.response.status_code}"
+        st.error(f"Upload failed: {detail}")
+        return None
+    except httpx.RequestError as e:
+        st.error(f"Connection error: {str(e)}")
+        return None
 
-    Returns:
-        New token pair dict on success, None on failure.
+
+def list_documents() -> List[dict]:
+    """List user's documents."""
+    try:
+        response = _request("GET", "/api/v1/documents/")
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return []
+
+
+def get_document_status(document_id: str) -> Optional[dict]:
+    """Get document processing status."""
+    try:
+        response = _request("GET", f"/api/v1/documents/{document_id}/status")
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return None
+
+
+def delete_document(document_id: str) -> bool:
+    """Delete a document."""
+    try:
+        response = _request("DELETE", f"/api/v1/documents/{document_id}")
+        response.raise_for_status()
+        return True
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return False
+
+
+# =============================================================================
+# Query endpoints
+# =============================================================================
+
+def query_documents(query: str, max_results: int = 3) -> Optional[dict]:
+    """Query documents."""
+    try:
+        response = _request(
+            "POST",
+            "/api/v1/query/",
+            json={"query": query, "max_results": max_results},
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        try:
+            detail = e.response.json().get("detail", "Query failed")
+        except Exception:
+            detail = f"HTTP {e.response.status_code}"
+        st.error(f"Query failed: {detail}")
+        return None
+    except httpx.RequestError as e:
+        st.error(f"Connection error: {str(e)}")
+        return None
+
+
+def query_documents_stream(query: str, max_results: int = 3) -> Generator:
+    """Stream query response via SSE.
+
+    Yields tuples of (event_type, data) for each SSE event.
+    Event types: 'status', 'citations', 'token', 'done', 'error'.
     """
-    return asyncio.run(_refresh_tokens_async(refresh_token))
+    headers = _get_headers()
+    headers["Accept"] = "text/event-stream"
+    cookies = _get_cookies()
+
+    with httpx.Client(base_url=API_BASE_URL, timeout=120.0) as client:
+        with client.stream(
+            "POST",
+            "/api/v1/query/stream",
+            json={"query": query, "max_results": max_results},
+            headers=headers,
+            cookies=cookies,
+        ) as response:
+            _save_session_cookie(response)
+            event_type = "message"
+            for line in response.iter_lines():
+                if line.startswith("event:"):
+                    event_type = line[6:].strip()
+                elif line.startswith("data:"):
+                    # SSE spec: "data:" followed by optional single space
+                    # Remove only the spec space, preserve token whitespace
+                    data = line[5:]
+                    if data.startswith(" "):
+                        data = data[1:]
+                    yield (event_type, data)
+                    event_type = "message"

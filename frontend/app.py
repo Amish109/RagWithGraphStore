@@ -30,15 +30,19 @@ home_page = st.Page("pages/home.py", title="Home", icon=":material/home:")
 debug_page = st.Page("pages/debug.py", title="Debug", icon=":material/bug_report:")
 
 # Build navigation based on authentication state
-# Only authenticated users see Main and Tools sections
-# Anonymous users only see auth pages
+# Home page is available to ALL users (anonymous + authenticated)
+# Authenticated users also get Debug tool
 if st.session_state.get("is_authenticated"):
     pg = st.navigation({
         "Main": [home_page],
+        "Account": [login_page, register_page],
         "Tools": [debug_page],
     })
 else:
-    pg = st.navigation([login_page, register_page])
+    pg = st.navigation({
+        "Main": [home_page],
+        "Account": [login_page, register_page],
+    })
 
 # Render sidebar user info (shows logout button for authenticated users)
 render_user_info()

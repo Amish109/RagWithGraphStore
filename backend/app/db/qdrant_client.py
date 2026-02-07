@@ -165,9 +165,9 @@ def search_similar_chunks(
     Returns:
         List of chunk dictionaries with id, score, text, document_id, position.
     """
-    results = qdrant_client.search(
+    response = qdrant_client.query_points(
         collection_name=settings.QDRANT_COLLECTION,
-        query_vector=query_vector,
+        query=query_vector,
         query_filter=Filter(
             must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
         ),
@@ -184,5 +184,5 @@ def search_similar_chunks(
             "document_id": result.payload.get("document_id", ""),
             "position": result.payload.get("position", 0),
         }
-        for result in results
+        for result in response.points
     ]

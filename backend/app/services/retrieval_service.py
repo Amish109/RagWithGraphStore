@@ -135,9 +135,9 @@ async def retrieve_for_documents(
         ]
     )
 
-    search_results = qdrant_client.search(
+    search_response = qdrant_client.query_points(
         collection_name=settings.QDRANT_COLLECTION,
-        query_vector=query_embedding,
+        query=query_embedding,
         query_filter=search_filter,
         limit=max_results,
         with_payload=True,
@@ -145,7 +145,7 @@ async def retrieve_for_documents(
 
     # Convert to standard chunk format
     chunks = []
-    for result in search_results:
+    for result in search_response.points:
         chunks.append({
             "id": result.payload.get("chunk_id", str(result.id)),
             "score": result.score,

@@ -1,5 +1,5 @@
 """Utility modules for Streamlit frontend."""
-from .api_client import get_api_client, login, logout, refresh_tokens, register
+from .api_client import login, logout, refresh_tokens, register
 from .session import (
     clear_auth_state,
     decode_token_claims,
@@ -11,7 +11,6 @@ from .session import (
 )
 
 __all__ = [
-    "get_api_client",
     "login",
     "logout",
     "refresh_tokens",
