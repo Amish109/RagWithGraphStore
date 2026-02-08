@@ -2,12 +2,13 @@
 
 ## Overview
 
-This roadmap delivers a production-ready FastAPI backend for intelligent document Q&A with persistent memory. Starting with foundational infrastructure and core RAG functionality, we build progressively through multi-user isolation and memory management, UX enhancements with streaming responses, advanced document comparison via LangGraph, differentiation features including shared knowledge spaces, and finally production hardening with observability and performance optimization. Each phase delivers verifiable user-facing capabilities while systematically addressing critical security and architecture pitfalls identified in research.
+This roadmap delivers a production-ready FastAPI backend for intelligent document Q&A with persistent memory, followed by a comprehensive Next.js production frontend. The backend (v1.0) established core RAG, multi-user isolation, streaming, and advanced features. The frontend (v2.0) replaces the Streamlit test UI with a polished Next.js application featuring SSE streaming, dark/light theme, responsive layout, and all backend features exposed through a modern component library.
 
 ## Milestones
 
 - **v1.0: FastAPI Backend** (Phases 1-6) - Production-ready intelligent document Q&A backend
-- **v1.1: Streamlit Test Frontend** (Phases 7-12) - Comprehensive test UI to exercise all backend features
+- **v1.1: Streamlit Test Frontend** (Phases 7-12) - Test UI (Phase 7 complete, Phases 8-12 superseded by v2.0)
+- **v2.0: Next.js Production Frontend** (Phases 13-17) - Full production frontend replacing Streamlit
 
 ## Phases
 
@@ -24,16 +25,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: UX & Streaming** - Streaming responses, document management, query history, graceful error handling
 - [x] **Phase 4: LangGraph & Advanced Workflows** - Document comparison, GraphRAG multi-hop reasoning, memory summarization
 - [x] **Phase 5: Differentiation Features** - Shared knowledge spaces, document summaries, highlighted citations, confidence scores
-- [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing
+- [ ] **Phase 6: Production Hardening** - Observability, performance optimization, error handling, load testing (deferred)
 
 ### Milestone v1.1: Streamlit Test Frontend
 
-- [ ] **Phase 7: Foundation & Authentication** - Streamlit setup, API client, session state, auth flows
-- [ ] **Phase 8: Document Management** - Upload, list, delete, summaries, progress tracking
-- [ ] **Phase 9: RAG Query & Streaming** - Query interface, SSE streaming, citations, confidence, chat history
-- [ ] **Phase 10: Document Comparison** - Multi-document comparison interface
-- [ ] **Phase 11: Memory & Admin** - Personal memory, shared knowledge, admin features
-- [ ] **Phase 12: Testing & Debug Tools** - Multi-user testing, migration verification, request inspector
+- [x] **Phase 7: Foundation & Authentication** - Streamlit setup, API client, session state, auth flows (complete)
+- [~] **Phases 8-12** — Superseded by v2.0 Next.js frontend
+
+### Milestone v2.0: Next.js Production Frontend
+
+- [ ] **Phase 13: Project Scaffold & Authentication** - Next.js setup, shadcn/ui, auth flows, dark/light theme
+- [ ] **Phase 14: Document Management** - Upload, progress, list, delete, summaries
+- [ ] **Phase 15: Chat & SSE Streaming** - Q&A interface, SSE streaming, citations, confidence
+- [ ] **Phase 16: Comparison, Memory & Admin** - Document comparison, memory management, admin panel
+- [ ] **Phase 17: Polish, Responsive & Final Integration** - Mobile layout, animations, error handling
 
 ## Phase Details
 
@@ -136,105 +141,88 @@ Plans:
 - [x] 05-03-PLAN.md — Confidence scores and highlighted citations (Wave 2)
 - [x] 05-04-PLAN.md — Memory API and shared knowledge integration (Wave 3)
 
-### Phase 6: Production Hardening
+### Phase 6: Production Hardening (Deferred)
 **Goal**: Production-ready system with observability, performance optimization, and operational excellence
-**Depends on**: Phase 5
-**Requirements**: AUTH-06, API-09 (both completed in Phase 2-01)
-**Success Criteria** (what must be TRUE):
-  1. System responds to queries in under 2 seconds under normal load
-  2. All API endpoints have logging, metrics, and distributed tracing enabled for debugging
-  3. System gracefully handles errors with fallbacks and never exposes internal details to users
-  4. System has been load tested with 100+ concurrent users and maintains sub-2s response times
-  5. Rate limiting and cost protection prevent runaway API costs from malicious or accidental overuse
-  6. Comprehensive evaluation framework tracks retrieval accuracy, response quality, and latency metrics
-**Plans**: 5 plans in 3 waves
+**Status**: Deferred
 
-Plans:
-- [ ] 06-01-PLAN.md — Structured logging with structlog and OpenTelemetry tracing (Wave 1)
-- [ ] 06-02-PLAN.md — Prometheus metrics and rate limiting with slowapi (Wave 1)
-- [ ] 06-03-PLAN.md — Resilience patterns: circuit breakers and retry with backoff (Wave 2)
-- [ ] 06-04-PLAN.md — Load testing infrastructure with Locust (Wave 3)
-- [ ] 06-05-PLAN.md — RAG evaluation framework with RAGAs (Wave 3)
-
-### Phase 7: Foundation & Authentication
+### Phase 7: Foundation & Authentication (v1.1 - Complete)
 **Goal**: Establish Streamlit application structure with working authentication flows and persistent session state
-**Depends on**: Backend Phase 5 (completed)
-**Requirements**: AUTH-F01, AUTH-F02, AUTH-F03, AUTH-F04, AUTH-F05, AUTH-F06
-**Success Criteria** (what must be TRUE):
-  1. User can login with email/password via form and stay logged in across browser refreshes
-  2. User can register new account and immediately access all features without re-logging
-  3. User can logout via button from any page and see login screen
-  4. Anonymous user can use app without logging in and see session ID in sidebar
-  5. Current user info displays in sidebar showing name, role (user/admin), and session type (authenticated/anonymous)
-  6. Debug panel shows JWT token expiry time and user ID for troubleshooting
-**Plans**: 5 plans in 4 waves
+**Status**: Complete (5/5 plans)
 
 Plans:
-- [ ] 07-01-PLAN.md — Project scaffolding, API client, session state utilities (Wave 1)
-- [ ] 07-02-PLAN.md — Login page with callback-based auth flow (Wave 2)
-- [ ] 07-03-PLAN.md — Registration page with callback-based auth flow (Wave 2)
-- [ ] 07-04-PLAN.md — App entry, dynamic navigation, sidebar user info, logout (Wave 3)
-- [ ] 07-05-PLAN.md — Debug panel with token info, human verification (Wave 4)
+- [x] 07-01-PLAN.md — Project scaffolding, API client, session state utilities (Wave 1)
+- [x] 07-02-PLAN.md — Login page with callback-based auth flow (Wave 2)
+- [x] 07-03-PLAN.md — Registration page with callback-based auth flow (Wave 2)
+- [x] 07-04-PLAN.md — App entry, dynamic navigation, sidebar user info, logout (Wave 3)
+- [x] 07-05-PLAN.md — Debug panel with token info, human verification (Wave 4)
 
-### Phase 8: Document Management
-**Goal**: Enable full document lifecycle management with upload, viewing, and deletion capabilities
-**Depends on**: Phase 7
-**Requirements**: DOC-F01, DOC-F02, DOC-F03, DOC-F04, DOC-F05, DOC-F06
+### Phase 13: Project Scaffold & Authentication
+**Goal**: Set up Next.js project with shadcn/ui, dark/light theme, and complete auth flows including anonymous access and migration
+**Depends on**: Backend Phase 5 (completed)
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, AUTH-08, LAYOUT-01, LAYOUT-02, LAYOUT-05
 **Success Criteria** (what must be TRUE):
-  1. User can upload PDF files via drag-drop or file picker and see success confirmation
-  2. User can upload DOCX files via drag-drop or file picker with same experience
-  3. User sees progress indicator during document processing showing parse/chunk/embed stages
-  4. User can view list of uploaded documents with name, size, and upload date in table format
-  5. User can delete documents from list with confirmation dialog and see real-time list update
-  6. User can view auto-generated summary for each document by clicking expand button
+  1. User can register, login, logout through polished forms
+  2. JWT tokens stored in httpOnly cookies, auto-refresh before expiry
+  3. Dark/light theme toggle works without flash (next-themes)
+  4. Sidebar navigation renders with auth-aware sections
+  5. Anonymous users can browse; registration migrates their data
+  6. Toast notifications appear for auth actions
 
-### Phase 9: RAG Query & Streaming
-**Goal**: Deliver core RAG experience with streaming responses, citations, and conversation management
-**Depends on**: Phase 8
-**Requirements**: QRY-F01, QRY-F02, QRY-F03, QRY-F04, QRY-F05, QRY-F06
+### Phase 14: Document Management
+**Goal**: Full document lifecycle — upload, track progress, list, delete, summaries
+**Depends on**: Phase 13
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, LAYOUT-04
 **Success Criteria** (what must be TRUE):
-  1. User can enter natural language questions in text input and submit with button or Enter key
-  2. User sees streaming response with typewriter effect as backend generates answer
-  3. Response includes source citations with document names and shows which docs were referenced
-  4. Response shows confidence score as colored badge (green=high, yellow=medium, red=low)
-  5. User can see chat history showing previous questions and answers in current session
-  6. User can click "Explain Simpler" button to get simplified explanation of last response
+  1. User can drag-and-drop PDF/DOCX files with type/size validation
+  2. Upload shows real-time processing progress (polling /documents/{id}/status)
+  3. Document list shows filename, date, chunk count, status badge
+  4. Delete shows confirmation dialog with optimistic UI update
+  5. Document summaries available in 4 formats via tabs
+  6. Loading skeletons shown during data fetch
+  7. Each user sees only their own documents
 
-### Phase 10: Document Comparison
-**Goal**: Enable multi-document comparison for identifying similarities and differences
-**Depends on**: Phase 9
-**Requirements**: CMP-F01, CMP-F02, CMP-F03
+### Phase 15: Chat & SSE Streaming
+**Goal**: Core Q&A experience with streaming, citations, confidence, simplification
+**Depends on**: Phase 14
+**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, CHAT-05, CHAT-06, CHAT-07
 **Success Criteria** (what must be TRUE):
-  1. User can select 2 or more documents from list using checkboxes and click Compare button
-  2. User sees comparison results showing similarities, differences, and cross-document insights
-  3. Comparison includes citations from multiple source documents showing which doc supports each point
+  1. User types question and sees token-by-token streaming response
+  2. Responses render as markdown (headers, lists, code blocks, tables)
+  3. Citations appear below each response with source document links
+  4. Confidence badge shows high/medium/low with tooltip
+  5. "Simplify" button offers eli5/general/professional levels
+  6. Chat history persists within session (zustand)
+  7. Each user sees only their own chat (isolation via auth)
+  8. Stream properly closes on navigation away (AbortController)
 
-### Phase 11: Memory & Admin
-**Goal**: Enable memory management for personalized experience and admin-only shared knowledge features
-**Depends on**: Phase 10
-**Requirements**: MEM-F01, MEM-F02, MEM-F03, ADM-F01, ADM-F02, ADM-F03
+### Phase 16: Comparison, Memory & Admin
+**Goal**: Document comparison, personal memory, admin panel
+**Depends on**: Phase 15
+**Requirements**: COMP-01, COMP-02, COMP-03, MEM-01, MEM-02, ADMIN-01
 **Success Criteria** (what must be TRUE):
-  1. User can add facts to personal memory via form and see confirmation
-  2. User can view stored memory entries in table with fact text and timestamp
-  3. Responses show when memory context is used with labeled badge or icon
-  4. Admin-only pages (Shared Knowledge) visible only when user has admin role
-  5. Admin can add facts to shared company-wide knowledge base via dedicated form
-  6. Admin can view all shared memory entries in separate section from personal memory
+  1. User can select 2-5 documents and trigger comparison
+  2. Comparison results show similarities, differences, cross-document insights
+  3. User can ask follow-up questions in comparison context
+  4. User can add/view/delete personal memory facts
+  5. Admin sees admin-only nav items and shared knowledge management page
+  6. Admin can add/list/delete shared company knowledge
 
-### Phase 12: Testing & Debug Tools
-**Goal**: Provide comprehensive testing tools for multi-user isolation, migration, and API debugging
-**Depends on**: Phase 11
-**Requirements**: TST-F01, TST-F02, TST-F03, TST-F04
+### Phase 17: Polish, Responsive & Final Integration
+**Goal**: Mobile layout, animations, loading states, error handling, final testing
+**Depends on**: Phase 16
+**Requirements**: LAYOUT-03
 **Success Criteria** (what must be TRUE):
-  1. User can login as different test users in separate browser tabs to verify data isolation
-  2. User can test anonymous-to-registered migration by using app anonymously, registering, and verifying data persists
-  3. User can view raw API requests and responses in inspector panel for debugging
-  4. User can test raw backend endpoints directly with custom request builder showing method/path/body/headers
+  1. App works on mobile devices with collapsible sidebar
+  2. Page transitions use subtle animations (motion)
+  3. Error boundaries catch and display errors gracefully
+  4. All 22 backend endpoints have corresponding frontend features
+  5. Anonymous → registered migration works end-to-end
+  6. Multi-user isolation verified (login as different users)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → (6 deferred) → 7 → (8-12 superseded) → 13 → 14 → 15 → 16 → 17
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -243,10 +231,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. UX & Streaming | 4/4 | Complete | 2026-02-04 |
 | 4. LangGraph & Advanced Workflows | 5/5 | Complete | 2026-02-04 |
 | 5. Differentiation Features | 4/4 | Complete | 2026-02-04 |
-| 6. Production Hardening | 0/5 | Not started | - |
-| 7. Foundation & Authentication | 0/5 | Planned | - |
-| 8. Document Management | 0/0 | Not started | - |
-| 9. RAG Query & Streaming | 0/0 | Not started | - |
-| 10. Document Comparison | 0/0 | Not started | - |
-| 11. Memory & Admin | 0/0 | Not started | - |
-| 12. Testing & Debug Tools | 0/0 | Not started | - |
+| 6. Production Hardening | 0/5 | Deferred | - |
+| 7. Foundation & Authentication | 5/5 | Complete | 2026-02-05 |
+| 8-12. Streamlit Phases | - | Superseded | - |
+| 13. Project Scaffold & Auth | 0/0 | Not started | - |
+| 14. Document Management | 0/0 | Not started | - |
+| 15. Chat & SSE Streaming | 0/0 | Not started | - |
+| 16. Comparison, Memory & Admin | 0/0 | Not started | - |
+| 17. Polish & Final Integration | 0/0 | Not started | - |

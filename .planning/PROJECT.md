@@ -2,25 +2,26 @@
 
 ## What This Is
 
-A full-stack intelligent document Q&A system with persistent memory. The FastAPI backend handles document processing, RAG retrieval, and multi-user memory management. The Streamlit frontend provides a test UI to exercise all backend features. The system uses RAG combining graph-based knowledge (Neo4j) and vector search (Qdrant) via Mem0 SDK, with LangChain ChatOpenAI for multi-step reasoning.
+A full-stack intelligent document Q&A system with persistent memory. The FastAPI backend handles document processing, RAG retrieval, and multi-user memory management. The Next.js production frontend provides a polished, responsive web app with SSE streaming, dark/light theme, and all backend features exposed through a modern UI. The system uses RAG combining graph-based knowledge (Neo4j) and vector search (Qdrant) via Mem0 SDK, with LangChain ChatOpenAI for multi-step reasoning.
 
 ## Core Value
 
 Users can upload documents and get intelligent, contextual answers that draw on both semantic similarity (vector search) and relationship understanding (graph search).
 
-## Current Milestone: v1.1 Streamlit Test Frontend
+## Current Milestone: v2.0 Next.js Production Frontend
 
-**Goal:** Build a comprehensive Streamlit UI to test and demonstrate all backend features.
+**Goal:** Replace the Streamlit test frontend with a full production Next.js frontend featuring SSE streaming, dark/light theme, responsive layout, and all backend features.
 
 **Target features:**
-- Authentication flows (register, login, logout, anonymous, admin)
-- Document management (upload, list, delete, summaries)
-- RAG Q&A with citations, confidence scores, and simplification
-- Document comparison
-- Memory/chat persistence
-- Multi-user isolation verification
+- Authentication flows (register, login, logout, anonymous, admin) with JWT httpOnly cookies
+- Document management (upload with drag-drop, list, delete, summaries)
+- RAG Q&A with SSE streaming, citations, confidence scores, and simplification
+- Document comparison with follow-up questions
+- Memory management (personal + shared)
 - Admin shared knowledge management
-- Anonymous-to-authenticated data migration testing
+- Multi-user isolation
+- Anonymous-to-authenticated data migration
+- Dark/light theme, responsive mobile layout, loading skeletons, animations
 
 ## Requirements
 
@@ -40,23 +41,24 @@ Users can upload documents and get intelligent, contextual answers that draw on 
 - ✓ Streaming responses (SSE)
 - ✓ Confidence scores and highlighted citations
 
+*Frontend v1.1 Streamlit — shipped 2026-02-05 (Phase 7):*
+- ✓ User can register, login, and logout via UI
+- ✓ Anonymous user can use app without logging in
+- ✓ Dynamic navigation with role-based access
+
 ### Active
 
-*Frontend v1.1 — in progress:*
-- [ ] User can register, login, and logout via UI
-- [ ] Anonymous user can use app without logging in
-- [ ] User can upload PDF/DOCX and see processing progress
-- [ ] User can list and delete their documents
-- [ ] User can ask questions and see streaming answers with citations
-- [ ] User can view confidence scores on responses
-- [ ] User can request simplified explanations
-- [ ] User can compare multiple documents
-- [ ] User can see and continue conversation history
-- [ ] User can add facts to personal memory
-- [ ] Admin can upload to shared knowledge base
-- [ ] Admin can view/manage shared memory
-- [ ] Multi-user isolation is testable (login as different users)
-- [ ] Anonymous data migration is testable (use → register → verify)
+*Frontend v2.0 — in progress:*
+- [ ] Complete auth with JWT httpOnly cookies and auto-refresh
+- [ ] Anonymous-to-authenticated data migration
+- [ ] Document upload with drag-drop and processing progress
+- [ ] Document list, delete, summaries
+- [ ] Chat Q&A with SSE streaming and markdown rendering
+- [ ] Citations, confidence scores, simplification levels
+- [ ] Document comparison with follow-up questions
+- [ ] Personal memory management
+- [ ] Admin shared knowledge management
+- [ ] Dark/light theme, responsive layout, loading skeletons
 
 ### Out of Scope
 
@@ -64,7 +66,10 @@ Users can upload documents and get intelligent, contextual answers that draw on 
 - Real-time collaboration — single-user document interactions
 - Document editing — read-only analysis and Q&A
 - Graph visualization in UI — use Neo4j Browser directly
-- Production-grade UI design — this is a test/demo frontend
+- WebSocket — backend uses SSE, not WebSocket
+- Offline mode — requires server connection
+- Multi-language UI — English only
+- Custom theme builder — dark/light toggle is sufficient
 
 ## Context
 
@@ -73,7 +78,10 @@ Users can upload documents and get intelligent, contextual answers that draw on 
 - LangGraph orchestrates multi-step reasoning workflows
 - LangChain ChatOpenAI provides the LLM backbone for generation and reasoning
 - FastAPI exposes RESTful endpoints for all operations
-- Pydantic BaseSettings centralizes configuration from environment variables
+- Next.js 15 with App Router provides production frontend
+- shadcn/ui + Tailwind CSS v4 for component library and styling
+- zustand for client-side state management
+- httpOnly cookies via Next.js API route proxy for secure auth
 
 **Memory model:**
 - Private memory: Per-user isolated space for documents and facts
@@ -83,10 +91,12 @@ Users can upload documents and get intelligent, contextual answers that draw on 
 ## Constraints
 
 - **Backend stack**: FastAPI, LangGraph, Mem0 SDK, Neo4j, Qdrant, LangChain ChatOpenAI, Pydantic
-- **Frontend stack**: Streamlit (test UI)
+- **Frontend stack**: Next.js 15 + React 19 + Tailwind CSS v4 + shadcn/ui + zustand + motion
 - **Document formats**: PDF and DOCX only
 - **LLM provider**: OpenAI via LangChain (requires API key)
 - **Infrastructure**: Requires running Neo4j, Qdrant, Redis, and PostgreSQL instances
+- **Auth**: JWT with httpOnly cookies via Next.js API route proxy (not localStorage)
+- **SSE**: POST-based SSE via fetch + eventsource-parser (not EventSource API)
 
 ## Key Decisions
 
@@ -96,8 +106,13 @@ Users can upload documents and get intelligent, contextual answers that draw on 
 | JWT for authentication | Simple, stateless, well-supported in FastAPI | ✓ Good |
 | Session-based anonymous access | Allows try-before-signup UX | ✓ Good |
 | Private + shared memory model | Balances user privacy with organizational knowledge | ✓ Good |
-| Streamlit for test frontend | Rapid prototyping, Python-native, easy backend integration | — Pending |
-| Monorepo structure (/backend, /frontend) | Shared planning, unified versioning | — Pending |
+| Streamlit for test frontend | Rapid prototyping, Python-native, easy backend integration | ✓ Good (served its purpose) |
+| Replace Streamlit with Next.js | Production-grade UI, SSR, streaming, responsive | — Pending |
+| httpOnly cookies via API proxy | Prevents XSS token theft, secure auth | — Pending |
+| Tailwind CSS v4 + shadcn/ui | Modern CSS-first config, accessible components | — Pending |
+| zustand for state management | Lightweight, no provider needed, persistent storage | — Pending |
+| fetch + eventsource-parser for SSE | EventSource can't POST, backend SSE is POST-based | — Pending |
+| Pin zod@3 | v4 incompatible with @hookform/resolvers | — Pending |
 
 ---
-*Last updated: 2026-02-05 after milestone v1.1 initialization*
+*Last updated: 2026-02-08 after milestone v2.0 initialization*
