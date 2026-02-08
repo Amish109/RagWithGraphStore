@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     formData.append("username", email);
     formData.append("password", password);
 
-    const res = await fetch(`${API_URL}/api/auth/login`, {
+    const res = await fetch(`${API_URL}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
@@ -53,8 +53,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       user: {
-        id: payload.sub,
-        email: payload.email || email,
+        id: payload.user_id,
+        email: payload.sub,
         role: payload.role || "user",
       },
     });

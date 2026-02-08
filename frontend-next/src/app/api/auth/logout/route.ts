@@ -9,7 +9,7 @@ export async function POST() {
     const accessToken = cookieStore.get("access_token");
 
     if (accessToken) {
-      await fetch(`${API_URL}/api/auth/logout`, {
+      await fetch(`${API_URL}/api/v1/auth/logout`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken.value}`,

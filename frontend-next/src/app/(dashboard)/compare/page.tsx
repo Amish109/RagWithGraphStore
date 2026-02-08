@@ -25,7 +25,7 @@ export default function ComparePage() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        const res = await apiFetch("/api/documents");
+        const res = await apiFetch("/api/v1/documents/");
         if (res.ok) {
           const data = await res.json();
           setDocuments(
@@ -61,7 +61,7 @@ export default function ComparePage() {
     setIsComparing(true);
     setResult(null);
     try {
-      const res = await apiFetch("/api/comparisons/compare", {
+      const res = await apiFetch("/api/v1/compare/", {
         method: "POST",
         body: JSON.stringify({ document_ids: selected }),
       });

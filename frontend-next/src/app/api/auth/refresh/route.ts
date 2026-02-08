@@ -15,7 +15,7 @@ export async function POST() {
       );
     }
 
-    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+    const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken.value }),
@@ -48,7 +48,19 @@ export async function POST() {
       maxAge: 7 * 24 * 60 * 60,
     });
 
-    return NextResponse.json({ success: true });
+    // Decode JWT to return user info
+    const payload = JSON.parse(
+      Buffer.from(data.access_token.split(".")[1], "base64").toString()
+    );
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: payload.user_id,
+        email: payload.sub,
+        role: payload.role || "user",
+      },
+    });
   } catch {
     return NextResponse.json(
       { detail: "Refresh error" },

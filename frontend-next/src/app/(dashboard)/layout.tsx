@@ -17,15 +17,9 @@ export default function DashboardLayout({
       try {
         const res = await fetch("/api/auth/refresh", { method: "POST" });
         if (res.ok) {
-          // Refresh succeeded, get user from the access token via a check endpoint
-          // For now, decode from cookie via a simple me endpoint
-          const meRes = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/me`,
-            { credentials: "include" }
-          );
-          if (meRes.ok) {
-            const user = await meRes.json();
-            setUser(user);
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
           } else {
             setAnonymous(true);
             setLoading(false);

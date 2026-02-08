@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       headers["Cookie"] = `session_id=${anonSession.value}`;
     }
 
-    const res = await fetch(`${API_URL}/api/auth/register`, {
+    const res = await fetch(`${API_URL}/api/v1/auth/register`, {
       method: "POST",
       headers,
       body: JSON.stringify({ email, password }),
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     formData.append("username", email);
     formData.append("password", password);
 
-    const loginRes = await fetch(`${API_URL}/api/auth/login`, {
+    const loginRes = await fetch(`${API_URL}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formData.toString(),

@@ -28,7 +28,7 @@ export default function DocumentDetailPage({
   useEffect(() => {
     async function fetchDoc() {
       try {
-        const res = await apiFetch(`/api/documents`);
+        const res = await apiFetch(`/api/v1/documents/`);
         if (res.ok) {
           const data = await res.json();
           const docs: Document[] = data.documents || data;
@@ -49,7 +49,7 @@ export default function DocumentDetailPage({
     setLoadingSummary(format);
     try {
       const res = await apiFetch(
-        `/api/query/summary?document_id=${id}&format=${format}`
+        `/api/v1/query/documents/${id}/summary?format=${format}`
       );
       if (res.ok) {
         const data = await res.json();

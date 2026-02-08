@@ -13,7 +13,7 @@ export default function DocumentsPage() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const res = await apiFetch("/api/documents");
+      const res = await apiFetch("/api/v1/documents/");
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.documents || data);
@@ -35,7 +35,7 @@ export default function DocumentsPage() {
       formData.append("file", file);
 
       try {
-        const res = await apiUpload("/api/documents/upload", formData);
+        const res = await apiUpload("/api/v1/documents/upload", formData);
         if (res.ok) {
           toast.success(`Uploaded: ${file.name}`);
           fetchDocuments();
@@ -51,7 +51,7 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await apiFetch(`/api/documents/${id}`, {
+      const res = await apiFetch(`/api/v1/documents/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

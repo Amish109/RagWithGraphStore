@@ -14,6 +14,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
     MatchValue,
     PointStruct,
     VectorParams,
@@ -150,30 +151,48 @@ def delete_by_document_id(document_id: str) -> None:
 
 
 def search_similar_chunks(
-    query_vector: List[float], user_id: str, limit: int = 10
+    query_vector: List[float],
+    user_id: str,
+    limit: int = 10,
+    include_shared: bool = True,
 ) -> List[Dict]:
-    """Search for similar chunks filtered by user_id.
+    """Search for similar chunks filtered by user_id, optionally including shared docs.
 
     CRITICAL: Always filter by user_id for multi-tenant isolation.
-    Prevents cross-user data access (Pitfall #6).
+    Shared documents (uploaded by admin with __shared__ user_id) are included
+    for authenticated users so company knowledge is searchable by everyone.
 
     Args:
         query_vector: Embedding vector for the query.
         user_id: ID of the user to filter results for.
         limit: Maximum number of results to return.
+        include_shared: If True, also include shared knowledge documents.
 
     Returns:
         List of chunk dictionaries with id, score, text, document_id, position.
     """
+    # Include both user's own docs and shared docs
+    if include_shared and user_id != settings.SHARED_MEMORY_USER_ID:
+        user_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="user_id",
+                    match=MatchAny(any=[user_id, settings.SHARED_MEMORY_USER_ID]),
+                )
+            ]
+        )
+    else:
+        user_filter = Filter(
+            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+        )
+
     response = qdrant_client.query_points(
         collection_name=settings.QDRANT_COLLECTION,
         query=query_vector,
-        query_filter=Filter(
-            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
-        ),
+        query_filter=user_filter,
         limit=limit,
         with_payload=True,
-        with_vectors=False,  # Save bandwidth - we don't need vectors in response
+        with_vectors=False,
     )
 
     return [

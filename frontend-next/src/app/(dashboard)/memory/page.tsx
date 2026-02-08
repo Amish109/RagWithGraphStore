@@ -28,7 +28,7 @@ export default function MemoryPage() {
   async function fetchMemories() {
     setIsLoading(true);
     try {
-      const res = await apiFetch("/api/memory");
+      const res = await apiFetch("/api/v1/memory/");
       if (res.ok) {
         const data = await res.json();
         setMemories(data.memories || []);
@@ -48,7 +48,7 @@ export default function MemoryPage() {
     }
     setIsSearching(true);
     try {
-      const res = await apiFetch("/api/memory/search", {
+      const res = await apiFetch("/api/v1/memory/search", {
         method: "POST",
         body: JSON.stringify({ query: searchQuery.trim(), limit: 20 }),
       });
@@ -67,7 +67,7 @@ export default function MemoryPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await apiFetch(`/api/memory/${id}`, {
+      const res = await apiFetch(`/api/v1/memory/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
