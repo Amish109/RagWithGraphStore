@@ -65,7 +65,7 @@ Requirements for Next.js production frontend. Each maps to roadmap phases 13-17.
 
 ### Memory Management
 
-- [ ] **MEM-01**: User can add facts to and view/delete personal memory
+- [ ] **MEM-01**: User can view, search, and delete auto-saved personal memories
 - [ ] **MEM-02**: Admin can manage shared company knowledge (add/list/delete)
 
 ### Admin
