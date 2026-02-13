@@ -25,8 +25,8 @@ from app.core.session import (
 from app.models.schemas import UserContext
 from app.models.user import get_user_by_email
 
-# OAuth2 scheme with token URL matching the login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# OAuth2 scheme - auto_error=False so we can fall back to cookies
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 # OAuth2 scheme that doesn't auto-error (for optional auth)
 oauth2_scheme_optional = OAuth2PasswordBearer(
@@ -35,11 +35,17 @@ oauth2_scheme_optional = OAuth2PasswordBearer(
 )
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+async def get_current_user(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+) -> dict:
     """Dependency to get the current authenticated user from JWT token.
 
+    Checks Authorization header first, falls back to access_token cookie.
+
     Args:
-        token: JWT token extracted from Authorization header
+        request: FastAPI Request for reading cookies.
+        token: JWT token extracted from Authorization header.
 
     Returns:
         User dict from database with additional token info (jti, role)
@@ -47,6 +53,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     Raises:
         CredentialsException: If token is invalid or user not found
     """
+    # Fall back to cookie if no Bearer token
+    if not token:
+        token = request.cookies.get("access_token")
+    if not token:
+        raise CredentialsException()
+
     # Decode and validate token
     payload = decode_access_token(token)
     if payload is None:
@@ -98,6 +110,10 @@ async def get_current_user_optional(
     Returns:
         UserContext for either authenticated or anonymous user.
     """
+    # Fall back to cookie if no Bearer token
+    if not token:
+        token = request.cookies.get("access_token")
+
     if token:
         # Try to validate JWT
         try:

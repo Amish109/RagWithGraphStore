@@ -31,18 +31,18 @@ async def generate_answer(query: str, context: List[Dict]) -> str:
     """
     # Assemble context from chunks
     context_text = "\n\n".join([
-        f"[Document: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
+        f"[Source: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
         for chunk in context
     ])
 
     # Prompt template with strict constraints
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful document Q&A assistant. Answer questions ONLY based on the provided context.
+        ("system", """You are a helpful Q&A assistant. Answer questions ONLY based on the provided context, which may include documents and shared memory facts.
 
 CRITICAL INSTRUCTIONS:
-- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided documents."
+- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided context."
 - Do not use any knowledge outside the provided context
-- Cite the document name when referencing information
+- Cite the source (document name or "Shared Memory") when referencing information
 - Be concise and direct"""),
         ("user", """Context:
 {context}
@@ -83,18 +83,18 @@ async def stream_answer(query: str, context: List[Dict]) -> AsyncGenerator[str, 
     """
     # Assemble context from chunks
     context_text = "\n\n".join([
-        f"[Document: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
+        f"[Source: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
         for chunk in context
     ])
 
     # Same prompt template as non-streaming
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful document Q&A assistant. Answer questions ONLY based on the provided context.
+        ("system", """You are a helpful Q&A assistant. Answer questions ONLY based on the provided context, which may include documents and shared memory facts.
 
 CRITICAL INSTRUCTIONS:
-- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided documents."
+- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided context."
 - Do not use any knowledge outside the provided context
-- Cite the document name when referencing information
+- Cite the source (document name or "Shared Memory") when referencing information
 - Be concise and direct"""),
         ("user", """Context:
 {context}

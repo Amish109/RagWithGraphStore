@@ -73,7 +73,7 @@ export default function SharedKnowledgePage() {
     try {
       const res = await apiFetch("/api/v1/admin/memory/shared", {
         method: "POST",
-        body: JSON.stringify({ text: newFact.trim() }),
+        body: JSON.stringify({ content: newFact.trim() }),
       });
       if (res.ok) {
         toast.success("Shared knowledge added");

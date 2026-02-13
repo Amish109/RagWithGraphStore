@@ -153,8 +153,42 @@ async def query_stream(
                 max_results=query_request.max_results,
             )
 
+            # Step 1b: Include shared memory context
+            memory_chunks = []
+            if not current_user.is_anonymous:
+                try:
+                    from app.services.memory_service import search_with_shared
+                    memories = await search_with_shared(
+                        user_id=user_id,
+                        query=query_request.query,
+                        limit=5,
+                        include_shared=True,
+                    )
+                    print(f"[STREAM] user={user_id}, is_anon={current_user.is_anonymous}, memories_found={len(memories)}")
+                    memory_chunks = [
+                        {
+                            "text": m.get("memory", ""),
+                            "document_id": "memory",
+                            "filename": "Shared Memory" if m.get("is_shared") else "User Memory",
+                            "score": m.get("score", 0.5),
+                            "id": m.get("id", ""),
+                            "position": 0,
+                        }
+                        for m in memories
+                        if m.get("memory")
+                    ]
+                    print(f"[STREAM] memory_chunks={len(memory_chunks)}, texts={[c['text'][:50] for c in memory_chunks]}")
+                except Exception as e:
+                    logger.warning(f"Memory retrieval failed: {e}")
+            else:
+                print(f"[STREAM] Skipping memory — user is anonymous: {user_id}")
+
+            # Merge document chunks with memory chunks
+            all_chunks = context["chunks"] + memory_chunks
+            print(f"[STREAM] doc_chunks={len(context['chunks'])}, memory_chunks={len(memory_chunks)}, total={len(all_chunks)}")
+
             # Step 2: Handle no context case (QRY-04)
-            if not context["chunks"]:
+            if not all_chunks:
                 no_context_response = await generate_answer_no_context()
                 yield {
                     "event": "token",
@@ -171,7 +205,7 @@ async def query_stream(
                     "chunk_text": chunk["text"][:200] + "..." if len(chunk["text"]) > 200 else chunk["text"],
                     "relevance_score": chunk["score"]
                 }
-                for chunk in context["chunks"]
+                for chunk in all_chunks
             ]
             yield {
                 "event": "citations",
@@ -184,7 +218,7 @@ async def query_stream(
                 "data": json.dumps({"stage": "generating"})
             }
 
-            async for token in stream_answer(query_request.query, context["chunks"]):
+            async for token in stream_answer(query_request.query, all_chunks):
                 # Check for client disconnect (Pitfall #5)
                 if await request.is_disconnected():
                     break

@@ -18,7 +18,7 @@ export async function streamQuery(
   const res = await fetch(`${API_URL}/api/v1/query/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ query: question }),
     credentials: "include",
     signal,
   });
