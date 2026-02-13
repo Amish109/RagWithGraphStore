@@ -40,19 +40,77 @@ async def get_checkpointer() -> AsyncPostgresSaver:
 async def setup_checkpointer() -> None:
     """Initialize LangGraph checkpoint tables in PostgreSQL.
 
-    CRITICAL: This MUST be called during application startup before
-    any workflow execution. Creates required tables for state persistence.
+    Creates required tables for state persistence. Uses manual SQL to avoid
+    the CREATE INDEX CONCURRENTLY issue that AsyncPostgresSaver.setup() has
+    when running inside a transaction block.
 
     Tables created:
-    - checkpoint: Stores workflow state snapshots
-    - checkpoint_writes: Stores pending writes
+    - checkpoints: Stores workflow state snapshots
     - checkpoint_blobs: Stores serialized state data
+    - checkpoint_writes: Stores pending writes
+    - checkpoint_migrations: Tracks applied migrations
     """
-    try:
-        checkpointer = await get_checkpointer()
-        await checkpointer.setup()
-        logger.info("LangGraph checkpoint tables initialized in PostgreSQL")
-    except Exception as e:
-        logger.error(f"Failed to setup LangGraph checkpointer: {e}")
-        # Re-raise to prevent app startup with broken checkpointing
-        raise
+    pool = await get_postgres_pool()
+
+    # Check if tables already exist
+    async with pool.connection() as conn:
+        result = await conn.execute(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'checkpoints')"
+        )
+        row = await result.fetchone()
+        if row and row[0]:
+            logger.info("LangGraph checkpoint tables already exist")
+            # Ensure checkpointer instance is created
+            await get_checkpointer()
+            return
+
+    # Create tables manually (avoids CREATE INDEX CONCURRENTLY issue)
+    async with pool.connection() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS checkpoint_migrations (
+                v INTEGER PRIMARY KEY
+            );
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                checkpoint_id TEXT NOT NULL,
+                parent_checkpoint_id TEXT,
+                type TEXT,
+                checkpoint JSONB NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{}',
+                PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
+            );
+            CREATE TABLE IF NOT EXISTS checkpoint_blobs (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                channel TEXT NOT NULL,
+                version TEXT NOT NULL,
+                type TEXT NOT NULL,
+                blob BYTEA,
+                PRIMARY KEY (thread_id, checkpoint_ns, channel, version)
+            );
+            CREATE TABLE IF NOT EXISTS checkpoint_writes (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                checkpoint_id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                idx INTEGER NOT NULL,
+                channel TEXT NOT NULL,
+                type TEXT,
+                blob BYTEA NOT NULL,
+                task_path TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
+            );
+            CREATE INDEX IF NOT EXISTS checkpoints_thread_id_idx ON checkpoints(thread_id);
+            CREATE INDEX IF NOT EXISTS checkpoint_blobs_thread_id_idx ON checkpoint_blobs(thread_id);
+            CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id);
+        """)
+        # Mark all migrations as applied so AsyncPostgresSaver.setup() won't re-run them
+        for v in range(10):
+            await conn.execute(
+                "INSERT INTO checkpoint_migrations (v) VALUES (%s) ON CONFLICT DO NOTHING",
+                (v,),
+            )
+
+    logger.info("LangGraph checkpoint tables created in PostgreSQL")
+    await get_checkpointer()

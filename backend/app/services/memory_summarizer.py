@@ -147,7 +147,10 @@ class MemorySummarizer:
         Returns:
             Estimated token count.
         """
-        total_chars = sum(len(str(m.get("memory", ""))) for m in memories)
+        total_chars = sum(
+            len(str(m.get("memory", "")) if isinstance(m, dict) else str(m))
+            for m in memories
+        )
         return total_chars // 4
 
     async def _check_and_summarize(self, user_id: str) -> bool:
@@ -192,7 +195,7 @@ class MemorySummarizer:
         # Sort by timestamp (most recent first)
         sorted_memories = sorted(
             memories,
-            key=lambda m: m.get("metadata", {}).get("timestamp", ""),
+            key=lambda m: m.get("metadata", {}).get("timestamp", "") if isinstance(m, dict) else "",
             reverse=True,
         )
 
@@ -210,7 +213,10 @@ class MemorySummarizer:
         )
 
         # Prepare memory text for summarization
-        memory_text = "\n".join([str(m.get("memory", "")) for m in to_summarize])
+        memory_text = "\n".join([
+            str(m.get("memory", "")) if isinstance(m, dict) else str(m)
+            for m in to_summarize
+        ])
 
         # Create summary with critical fact preservation
         try:

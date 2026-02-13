@@ -57,7 +57,7 @@ async def compare_documents_endpoint(
         HTTPException 400: If fewer than 2 documents provided.
         HTTPException 500: If comparison workflow fails.
     """
-    user_id = current_user["sub"]
+    user_id = current_user["id"]
 
     # Generate session_id if not provided (new conversation)
     session_id = request.session_id or str(uuid.uuid4())
@@ -150,7 +150,7 @@ async def get_comparison_state_endpoint(
     Returns:
         Current workflow state if exists, or 404 if session not found.
     """
-    user_id = current_user["sub"]
+    user_id = current_user["id"]
 
     state = await get_comparison_state(
         user_id=user_id,
