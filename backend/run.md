@@ -1,6 +1,7 @@
 docker-compose up -d 
-uv run uvicorn app.main:app --reload
+<!-- uv run uvicorn app.main:app --reload -->
 
+cd backend && uv run uvicorn app.main:app --reload --port 8000
 
   Run
 

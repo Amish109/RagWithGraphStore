@@ -113,6 +113,7 @@ async def upload_document(
         document_id=document_id,
         user_id=user_id,
         filename=file.filename,
+        file_size=len(content),
     )
 
     return DocumentUploadResponse(

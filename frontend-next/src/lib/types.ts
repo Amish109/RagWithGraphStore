@@ -13,12 +13,12 @@ export interface AuthTokens {
 export interface Document {
   id: string;
   filename: string;
-  file_type: string;
-  file_size: number;
-  chunk_count: number;
-  status: "processing" | "ready" | "error";
-  created_at: string;
-  user_id: string;
+  file_type?: string;
+  file_size?: number;
+  chunk_count?: number;
+  status?: "processing" | "ready" | "error";
+  created_at?: string;
+  summary?: string;
 }
 
 export interface DocumentStatus {

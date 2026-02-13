@@ -26,20 +26,53 @@ logger = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(file_path: str) -> str:
-    """Extract text from PDF using pymupdf4llm.
+    """Extract text from PDF using pymupdf4llm with raw-text and OCR fallbacks.
 
-    Returns clean Markdown for semantic chunking.
-    pymupdf4llm preserves document structure (headings, lists, tables)
-    which improves semantic chunking quality.
+    Tries in order:
+    1. pymupdf4llm markdown extraction (preserves structure)
+    2. Raw pymupdf text extraction
+    3. OCR via tesseract (for image-based/scanned PDFs)
 
     Args:
         file_path: Path to the PDF file.
 
     Returns:
-        Extracted text as Markdown string.
+        Extracted text as string.
     """
+    import pymupdf
+
+    # 1. Try markdown extraction
     md_text = pymupdf4llm.to_markdown(file_path)
-    return md_text
+    if md_text.strip():
+        return md_text
+
+    # 2. Fallback: raw text extraction
+    logger.warning("pymupdf4llm returned empty markdown, trying raw text extraction")
+    doc = pymupdf.open(file_path)
+    parts = []
+    for page in doc:
+        text = page.get_text()
+        if text.strip():
+            parts.append(text)
+    doc.close()
+
+    if parts:
+        return "\n\n".join(parts)
+
+    # 3. Fallback: OCR via tesseract
+    logger.warning("Raw text extraction empty, trying OCR")
+    doc = pymupdf.open(file_path)
+    ocr_parts = []
+    for page in doc:
+        tp = page.get_textpage_ocr(tessdata=None, dpi=300, full=True)
+        text = page.get_text(textpage=tp)
+        if text.strip():
+            ocr_parts.append(text)
+    doc.close()
+
+    if ocr_parts:
+        logger.info(f"OCR extracted text from {len(ocr_parts)} pages")
+    return "\n\n".join(ocr_parts)
 
 
 def extract_text_from_docx(file_path: str) -> str:
@@ -113,6 +146,7 @@ async def process_document_pipeline(
     document_id: str,
     user_id: str,
     filename: str,
+    file_size: int = 0,
 ) -> None:
     """Complete document processing pipeline with status tracking.
 
@@ -210,6 +244,7 @@ async def process_document_pipeline(
             filename=filename,
             chunks=chunk_data,
             summary=summary,
+            file_size=file_size,
         )
         logger.info(f"Stored document and chunks in Neo4j for {filename}")
 

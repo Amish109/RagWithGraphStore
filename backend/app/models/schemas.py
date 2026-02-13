@@ -90,8 +90,11 @@ class DocumentInfo(BaseModel):
 
     id: str
     filename: str
-    upload_date: Optional[str] = None
+    created_at: Optional[str] = None
+    file_type: Optional[str] = None
+    file_size: Optional[int] = None
     chunk_count: Optional[int] = None
+    status: str = "ready"
     summary: Optional[str] = None  # Auto-generated summary for quick reference
 
 

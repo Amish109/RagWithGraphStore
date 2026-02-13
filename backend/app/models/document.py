@@ -32,7 +32,9 @@ def get_document_by_id(document_id: str, user_id: str) -> Optional[Dict]:
                 .filename,
                 .upload_date,
                 .chunk_count,
-                .summary
+                .summary,
+                .file_type,
+                .file_size
             } AS document
             """,
             document_id=document_id,
@@ -41,9 +43,11 @@ def get_document_by_id(document_id: str, user_id: str) -> Optional[Dict]:
         record = result.single()
         if record:
             doc = dict(record["document"])
-            # Convert Neo4j datetime to ISO string if present
+            # Convert Neo4j datetime to ISO string and rename to created_at
             if doc.get("upload_date"):
-                doc["upload_date"] = doc["upload_date"].isoformat()
+                doc["created_at"] = doc.pop("upload_date").isoformat()
+            else:
+                doc.pop("upload_date", None)
             return doc
         return None
 
@@ -66,7 +70,9 @@ def get_user_documents(user_id: str) -> List[Dict]:
                 .filename,
                 .upload_date,
                 .chunk_count,
-                .summary
+                .summary,
+                .file_type,
+                .file_size
             } AS document
             ORDER BY d.upload_date DESC
             """,
@@ -75,9 +81,11 @@ def get_user_documents(user_id: str) -> List[Dict]:
         documents = []
         for record in result:
             doc = dict(record["document"])
-            # Convert Neo4j datetime to ISO string if present
+            # Convert Neo4j datetime to ISO string and rename to created_at
             if doc.get("upload_date"):
-                doc["upload_date"] = doc["upload_date"].isoformat()
+                doc["created_at"] = doc.pop("upload_date").isoformat()
+            else:
+                doc.pop("upload_date", None)
             documents.append(doc)
         return documents
 

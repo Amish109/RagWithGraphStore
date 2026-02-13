@@ -48,7 +48,8 @@ export async function apiFetch(
         },
       });
     }
-    window.location.href = "/login";
+    // Don't force redirect — anonymous users are valid.
+    // Let the calling component decide how to handle auth failure.
   }
 
   return res;
@@ -74,7 +75,6 @@ export async function apiUpload(
         credentials: "include",
       });
     }
-    window.location.href = "/login";
   }
 
   return res;

@@ -18,10 +18,11 @@ interface DocumentCardProps {
 }
 
 export function DocumentCard({ document, onDelete }: DocumentCardProps) {
+  const status = document.status || "ready";
   const statusColor =
-    document.status === "ready"
+    status === "ready"
       ? "default"
-      : document.status === "processing"
+      : status === "processing"
         ? "secondary"
         : "destructive";
 
@@ -38,14 +39,14 @@ export function DocumentCard({ document, onDelete }: DocumentCardProps) {
           </CardTitle>
         </Link>
         <Badge variant={statusColor} className="shrink-0 ml-2">
-          {document.status}
+          {status}
         </Badge>
       </CardHeader>
       <CardContent className="flex items-center justify-between">
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>{document.file_type?.toUpperCase()}</p>
-          <p>{new Date(document.created_at).toLocaleDateString()}</p>
-          {document.chunk_count > 0 && <p>{document.chunk_count} chunks</p>}
+          {document.file_type && <p>{document.file_type.toUpperCase()}</p>}
+          {document.created_at && <p>{new Date(document.created_at).toLocaleDateString()}</p>}
+          {document.chunk_count != null && document.chunk_count > 0 && <p>{document.chunk_count} chunks</p>}
         </div>
         <Button
           variant="ghost"

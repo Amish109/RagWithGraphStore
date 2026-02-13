@@ -15,15 +15,24 @@ export default function DashboardLayout({
   useEffect(() => {
     async function checkAuth() {
       try {
-        const res = await fetch("/api/auth/refresh", { method: "POST" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setUser(data.user);
-          } else {
-            setAnonymous(true);
-            setLoading(false);
+        // Use lightweight /me endpoint — does NOT consume the refresh token
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+
+        if (data.user) {
+          setUser(data.user);
+        } else if (data.expired) {
+          // Token expired — try a single refresh
+          const refreshRes = await fetch("/api/auth/refresh", { method: "POST" });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            if (refreshData.user) {
+              setUser(refreshData.user);
+              return;
+            }
           }
+          setAnonymous(true);
+          setLoading(false);
         } else {
           setAnonymous(true);
           setLoading(false);
