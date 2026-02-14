@@ -32,6 +32,7 @@ class TaskStatus(str, Enum):
     EMBEDDING = "embedding"
     INDEXING = "indexing"
     SUMMARIZING = "summarizing"
+    EXTRACTING_ENTITIES = "extracting_entities"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -42,8 +43,9 @@ STAGE_PROGRESS = {
     TaskStatus.EXTRACTING: 10,
     TaskStatus.CHUNKING: 25,
     TaskStatus.EMBEDDING: 40,
-    TaskStatus.INDEXING: 70,
-    TaskStatus.SUMMARIZING: 85,
+    TaskStatus.INDEXING: 60,
+    TaskStatus.SUMMARIZING: 70,
+    TaskStatus.EXTRACTING_ENTITIES: 85,
     TaskStatus.COMPLETED: 100,
     TaskStatus.FAILED: 0,
 }

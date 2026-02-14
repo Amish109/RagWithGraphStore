@@ -91,9 +91,10 @@ def get_user_documents(user_id: str) -> List[Dict]:
 
 
 def delete_document(document_id: str, user_id: str) -> bool:
-    """Delete a document and all its chunks from Neo4j.
+    """Delete a document, its chunks, and orphaned entities from Neo4j.
 
     Uses DETACH DELETE to cascade deletion to all chunks.
+    Also cleans up Entity nodes that no longer appear in any remaining chunks.
     CRITICAL: Always filter by user_id for multi-tenant isolation.
 
     Args:
@@ -104,17 +105,46 @@ def delete_document(document_id: str, user_id: str) -> bool:
         True if document was deleted, False if not found/not owned.
     """
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        # First collect entity IDs linked to this document's chunks
+        # so we can check for orphans after deletion
+        entity_result = session.run(
+            """
+            MATCH (u:User {id: $user_id})-[:OWNS]->(d:Document {id: $document_id})
+            OPTIONAL MATCH (d)-[:CONTAINS]->(c:Chunk)<-[:APPEARS_IN]-(e:Entity)
+            RETURN collect(DISTINCT id(e)) AS entity_internal_ids
+            """,
+            document_id=document_id,
+            user_id=user_id,
+        )
+        entity_record = entity_result.single()
+        entity_ids = entity_record["entity_internal_ids"] if entity_record else []
+
+        # Delete document and chunks
         result = session.run(
             """
             MATCH (u:User {id: $user_id})-[:OWNS]->(d:Document {id: $document_id})
             OPTIONAL MATCH (d)-[:CONTAINS]->(c:Chunk)
             WITH d, collect(c) as chunks
             DETACH DELETE d
-            FOREACH (chunk IN chunks | DELETE chunk)
+            FOREACH (chunk IN chunks | DETACH DELETE chunk)
             RETURN count(d) as deleted
             """,
             document_id=document_id,
             user_id=user_id,
         )
         record = result.single()
-        return record and record["deleted"] > 0
+        deleted = record and record["deleted"] > 0
+
+        # Clean up orphaned entities (no remaining APPEARS_IN relationships)
+        if deleted and entity_ids:
+            session.run(
+                """
+                UNWIND $entity_ids AS eid
+                MATCH (e:Entity) WHERE id(e) = eid
+                WHERE NOT (e)-[:APPEARS_IN]->()
+                DETACH DELETE e
+                """,
+                entity_ids=entity_ids,
+            )
+
+        return deleted

@@ -91,6 +91,53 @@ def store_document_in_neo4j(
         )
 
 
+def store_entities_in_neo4j(
+    chunk_id: str,
+    entities: List[Dict],
+    relationships: List[Dict],
+) -> None:
+    """Store extracted entities and relationships in Neo4j.
+
+    Uses MERGE on (normalized_name, type) for cross-document deduplication.
+    Creates APPEARS_IN relationships to link entities to their source chunks,
+    and RELATES_TO relationships between entities.
+
+    Args:
+        chunk_id: ID of the chunk these entities were extracted from.
+        entities: List of entity dicts with id, name, type, normalized_name.
+        relationships: List of relationship dicts with source_normalized,
+                      target_normalized, type, description.
+    """
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        # Store entities with deduplication via MERGE on (normalized_name, type)
+        if entities:
+            session.run(
+                """
+                UNWIND $entities AS entity
+                MERGE (e:Entity {normalized_name: entity.normalized_name, type: entity.type})
+                ON CREATE SET e.id = entity.id, e.name = entity.name
+                WITH e
+                MATCH (c:Chunk {id: $chunk_id})
+                MERGE (e)-[:APPEARS_IN]->(c)
+                """,
+                entities=entities,
+                chunk_id=chunk_id,
+            )
+
+        # Store relationships between entities
+        if relationships:
+            session.run(
+                """
+                UNWIND $relationships AS rel
+                MATCH (source:Entity {normalized_name: rel.source_normalized})
+                MATCH (target:Entity {normalized_name: rel.target_normalized})
+                MERGE (source)-[r:RELATES_TO {type: rel.type}]->(target)
+                ON CREATE SET r.description = rel.description
+                """,
+                relationships=relationships,
+            )
+
+
 def store_chunks_in_qdrant(chunks: List[Dict]) -> None:
     """Store chunk embeddings in Qdrant.
 

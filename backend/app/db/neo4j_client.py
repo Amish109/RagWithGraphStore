@@ -85,4 +85,26 @@ def init_neo4j_schema() -> None:
             """
         )
 
+        # Entity constraints and indexes (GraphRAG)
+        session.run(
+            """
+            CREATE CONSTRAINT entity_id_unique IF NOT EXISTS
+            FOR (e:Entity) REQUIRE e.id IS UNIQUE
+            """
+        )
+
+        session.run(
+            """
+            CREATE INDEX entity_normalized_name IF NOT EXISTS
+            FOR (e:Entity) ON (e.normalized_name)
+            """
+        )
+
+        session.run(
+            """
+            CREATE INDEX entity_type IF NOT EXISTS
+            FOR (e:Entity) ON (e.type)
+            """
+        )
+
         print("Neo4j schema initialized with constraints and indexes")

@@ -81,6 +81,7 @@ async def query_documents(
         query=request.query,
         user_id=user_id,
         max_results=request.max_results,
+        include_graph_context=request.include_graph_context,
     )
 
     # Step 2: Handle no context case (QRY-04)
@@ -151,6 +152,7 @@ async def query_stream(
                 query=query_request.query,
                 user_id=user_id,
                 max_results=query_request.max_results,
+                include_graph_context=query_request.include_graph_context,
             )
 
             # Step 1b: Include shared memory context
@@ -374,6 +376,7 @@ async def query_documents_enhanced(
         query=request.query,
         user_id=user_id,
         max_results=request.max_results,
+        include_graph_context=request.include_graph_context,
     )
 
     # Step 2: Retrieve user memories (if authenticated and not anonymous)

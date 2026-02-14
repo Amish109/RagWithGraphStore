@@ -106,6 +106,7 @@ class QueryRequest(BaseModel):
 
     query: str
     max_results: int = 3
+    include_graph_context: bool = False
 
 
 class Citation(BaseModel):

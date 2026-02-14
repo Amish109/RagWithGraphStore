@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     MEMORY_MAX_TOKENS: int = 4000
     MEMORY_SUMMARIZATION_THRESHOLD: float = 0.75
 
+    # GraphRAG Configuration
+    GRAPHRAG_ENABLED: bool = True  # Master toggle for entity extraction during upload
+    GRAPHRAG_MAX_ENTITIES_PER_CHUNK: int = 20
+    GRAPHRAG_MAX_HOPS: int = 2
+
 
 # Global settings instance
 settings = Settings()

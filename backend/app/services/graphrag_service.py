@@ -2,10 +2,10 @@
 
 Provides:
 - expand_graph_context(): Expand chunk context via entity relationships
+- get_entity_chunks_for_query(): Find chunks via entity matching on query
 - retrieve_with_graph_expansion(): Full retrieval pipeline with graph expansion
 
-Enables cross-document entity relationship traversal for richer context
-(Phase 4 Success Criteria #2).
+Enables cross-document entity relationship traversal for richer context.
 """
 
 import logging
@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 # Multi-hop graph traversal query
 # Finds related entities and their appearances in other chunks
-# CRITICAL: Always use LIMIT to prevent query explosion (Pitfall #3)
+# Includes related_chunk_text so generation can use it directly
+# CRITICAL: Always use LIMIT to prevent query explosion
 MULTI_HOP_QUERY = """
 MATCH (c:Chunk {id: $chunk_id})<-[:CONTAINS]-(d:Document)
 OPTIONAL MATCH (e:Entity)-[:APPEARS_IN]->(c)
@@ -29,10 +30,12 @@ RETURN c.id AS chunk_id,
        d.filename AS filename,
        collect(DISTINCT {
            entity: e.name,
-           type: labels(e)[0],
+           entity_type: e.type,
            related_entity: related.name,
+           related_entity_type: related.type,
            relation: type(r),
-           related_chunk_id: other_chunk.id
+           related_chunk_id: other_chunk.id,
+           related_chunk_text: other_chunk.text
        })[0..10] AS entity_relations
 LIMIT 50
 """
@@ -51,11 +54,25 @@ RETURN c.id AS chunk_id,
 LIMIT 1
 """
 
+# Query to find chunks containing specific entities (by normalized name)
+ENTITY_LOOKUP_QUERY = """
+UNWIND $names AS name
+MATCH (e:Entity {normalized_name: name})-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+RETURN DISTINCT c.id AS chunk_id,
+       c.text AS chunk_text,
+       c.position AS position,
+       d.id AS document_id,
+       d.filename AS filename,
+       e.name AS matched_entity,
+       e.type AS entity_type
+LIMIT $limit
+"""
+
 
 async def expand_graph_context(
     chunk_ids: List[str],
     max_hops: int = 2
-) -> Dict[str, List[Dict]]:
+) -> Dict[str, Dict]:
     """Expand chunk context via Neo4j graph traversal.
 
     Traverses entity relationships to find related content across documents.
@@ -67,10 +84,9 @@ async def expand_graph_context(
         max_hops: Maximum relationship hops (default 2 for performance).
 
     Returns:
-        Dict mapping chunk_id to list of entity_relations dicts.
-        Each relation has: entity, type, related_entity, relation, related_chunk_id.
+        Dict mapping chunk_id to context dict with entity_relations and metadata.
     """
-    context: Dict[str, List[Dict]] = {}
+    context: Dict[str, Dict] = {}
 
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
         for chunk_id in chunk_ids:
@@ -102,7 +118,7 @@ async def expand_graph_context(
                         "document_id": fallback_record.get("document_id"),
                         "filename": fallback_record.get("filename"),
                         "related_chunks": fallback_record.get("related_chunks", []),
-                        "entity_relations": [],  # No entity nodes yet
+                        "entity_relations": [],
                     }
                 else:
                     context[chunk_id] = {
@@ -113,6 +129,67 @@ async def expand_graph_context(
 
     logger.debug(f"Expanded graph context for {len(chunk_ids)} chunks")
     return context
+
+
+async def get_entity_chunks_for_query(
+    query: str,
+    limit: int = 5,
+) -> List[Dict]:
+    """Find chunks by extracting entities from the query and looking them up in Neo4j.
+
+    This provides a graph-based retrieval path that complements vector search.
+    Entities mentioned in the query are matched against the knowledge graph
+    to find chunks where those entities appear.
+
+    Args:
+        query: User's query text.
+        limit: Maximum chunks to return.
+
+    Returns:
+        List of chunk dicts with id, text, document_id, filename, matched_entity.
+    """
+    from app.services.entity_extraction_service import (
+        extract_entities_from_chunk,
+        normalize_entity_name,
+    )
+
+    # Extract entities from the query
+    query_extraction = await extract_entities_from_chunk(query)
+    query_entities = query_extraction.get("entities", [])
+
+    if not query_entities:
+        return []
+
+    # Look up normalized names in Neo4j
+    normalized_names = [
+        normalize_entity_name(e["name"]) for e in query_entities
+    ]
+
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            ENTITY_LOOKUP_QUERY,
+            names=normalized_names,
+            limit=limit,
+        )
+        chunks = []
+        for record in result:
+            chunks.append({
+                "id": record["chunk_id"],
+                "text": record["chunk_text"],
+                "position": record.get("position", 0),
+                "document_id": record["document_id"],
+                "filename": record["filename"],
+                "matched_entity": record["matched_entity"],
+                "entity_type": record["entity_type"],
+                "score": 0.5,  # Default score for graph-retrieved chunks
+            })
+
+    if chunks:
+        logger.info(
+            f"Graph entity lookup found {len(chunks)} chunks for "
+            f"entities: {normalized_names}"
+        )
+    return chunks
 
 
 async def retrieve_with_graph_expansion(
