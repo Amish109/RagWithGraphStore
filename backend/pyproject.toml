@@ -37,8 +37,9 @@ dependencies = [
     # Authentication
     "pyjwt",
     "pwdlib[argon2]",
-    # Redis & scheduling
+    # Redis, Celery & scheduling
     "redis",
+    "celery[redis]",
     "apscheduler",
     # Form data & utilities
     "python-multipart",

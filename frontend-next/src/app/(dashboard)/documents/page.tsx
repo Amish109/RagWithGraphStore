@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { apiFetch, apiUpload } from "@/lib/api";
 import type { Document } from "@/lib/types";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { DocumentList } from "@/components/documents/document-list";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Loader2, XCircle } from "lucide-react";
+import { RefreshCw, Loader2, XCircle, Upload } from "lucide-react";
 
 interface ProcessingDoc {
   id: string;
@@ -23,6 +23,7 @@ export default function DocumentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [processingDocs, setProcessingDocs] = useState<ProcessingDoc[]>([]);
+  const pollingRefs = useRef<Set<string>>(new Set());
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -39,23 +40,23 @@ export default function DocumentsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchDocuments();
-  };
-
+  // Poll a single document's status until completed or failed
   const pollDocumentStatus = useCallback(
     async (documentId: string, filename: string) => {
-      setProcessingDocs((prev) => [
-        ...prev,
-        { id: documentId, filename, status: "extracting", progress: 10, message: "Starting..." },
-      ]);
+      // Prevent duplicate polling for same document
+      if (pollingRefs.current.has(documentId)) return;
+      pollingRefs.current.add(documentId);
 
-      const maxAttempts = 90;
+      // Add to processing list if not already there
+      setProcessingDocs((prev) => {
+        if (prev.some((d) => d.id === documentId)) return prev;
+        return [
+          ...prev,
+          { id: documentId, filename, status: "pending", progress: 0, message: "Starting..." },
+        ];
+      });
+
+      const maxAttempts = 300;
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         try {
@@ -76,10 +77,12 @@ export default function DocumentsPage() {
           if (data.status === "completed") {
             toast.success(`Processed: ${filename}`);
             setProcessingDocs((prev) => prev.filter((d) => d.id !== documentId));
+            pollingRefs.current.delete(documentId);
             fetchDocuments();
             return;
           }
           if (data.status === "failed") {
+            pollingRefs.current.delete(documentId);
             return;
           }
         } catch {
@@ -88,9 +91,37 @@ export default function DocumentsPage() {
       }
       toast.error(`Processing timed out: ${filename}`);
       setProcessingDocs((prev) => prev.filter((d) => d.id !== documentId));
+      pollingRefs.current.delete(documentId);
     },
     [fetchDocuments]
   );
+
+  // On page load: fetch documents AND restore any in-progress tasks from Redis
+  useEffect(() => {
+    fetchDocuments();
+
+    // Check for in-progress tasks (survives page refresh)
+    const restoreProcessingTasks = async () => {
+      try {
+        const res = await apiFetch("/api/v1/documents/processing");
+        if (res.ok) {
+          const tasks = await res.json();
+          for (const task of tasks) {
+            // Resume polling for each in-progress task
+            pollDocumentStatus(task.document_id, task.filename || task.message || "Document");
+          }
+        }
+      } catch {
+        // Not critical — just won't restore processing state
+      }
+    };
+    restoreProcessingTasks();
+  }, [fetchDocuments, pollDocumentStatus]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchDocuments();
+  };
 
   const dismissProcessing = (id: string) => {
     setProcessingDocs((prev) => prev.filter((d) => d.id !== id));
@@ -98,11 +129,21 @@ export default function DocumentsPage() {
 
   const handleUpload = async (files: File[]) => {
     for (const file of files) {
+      // Show "Uploading..." immediately so user sees feedback
+      const tempId = `uploading-${Date.now()}-${file.name}`;
+      setProcessingDocs((prev) => [
+        ...prev,
+        { id: tempId, filename: file.name, status: "uploading", progress: 0, message: "Uploading file..." },
+      ]);
+
       const formData = new FormData();
       formData.append("file", file);
 
       try {
         const res = await apiUpload("/api/v1/documents/upload", formData);
+        // Remove temp uploading entry
+        setProcessingDocs((prev) => prev.filter((d) => d.id !== tempId));
+
         if (res.ok) {
           const data = await res.json();
           pollDocumentStatus(data.document_id, file.name);
@@ -111,6 +152,7 @@ export default function DocumentsPage() {
           toast.error(`Upload failed: ${error.detail || file.name}`);
         }
       } catch {
+        setProcessingDocs((prev) => prev.filter((d) => d.id !== tempId));
         toast.error(`Upload failed: ${file.name}`);
       }
     }
@@ -159,6 +201,7 @@ export default function DocumentsPage() {
           <h2 className="text-sm font-medium text-muted-foreground">Processing</h2>
           {processingDocs.map((doc) => {
             const failed = doc.status === "failed";
+            const uploading = doc.status === "uploading";
             return (
               <div
                 key={doc.id}
@@ -166,6 +209,8 @@ export default function DocumentsPage() {
               >
                 {failed ? (
                   <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+                ) : uploading ? (
+                  <Upload className="h-4 w-4 shrink-0 animate-pulse text-primary" />
                 ) : (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
                 )}

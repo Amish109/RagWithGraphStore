@@ -172,7 +172,6 @@ async def process_document_pipeline(
         store_chunks_in_qdrant,
         store_document_in_neo4j,
     )
-    from app.services.summarization_service import generate_document_summary
 
     try:
         logger.info(f"Processing document: {filename} (id: {document_id})")
@@ -229,21 +228,14 @@ async def process_document_pipeline(
                 }
             )
 
-        # Step 4: Generate summary BEFORE indexing (so we can store with document)
-        task_tracker.update(
-            document_id, TaskStatus.SUMMARIZING, "Generating document summary"
-        )
-        summary = await generate_document_summary(chunk_texts)
-        logger.info(f"Generated summary for {filename}: {len(summary)} chars")
-
-        # Step 5: Store in databases (with summary)
+        # Step 4: Store in databases (summary generated on-demand, not during upload)
         task_tracker.update(document_id, TaskStatus.INDEXING, "Storing in database")
         store_document_in_neo4j(
             document_id=document_id,
             user_id=user_id,
             filename=filename,
             chunks=chunk_data,
-            summary=summary,
+            summary="",
             file_size=file_size,
         )
         logger.info(f"Stored document and chunks in Neo4j for {filename}")
@@ -261,7 +253,7 @@ async def process_document_pipeline(
             from app.services.entity_extraction_service import extract_entities_batch
             from app.services.indexing_service import store_entities_in_neo4j
 
-            entity_results = await extract_entities_batch(chunk_data)
+            entity_results = await extract_entities_batch(chunk_data, document_id=document_id)
             for chunk_datum, entity_result in zip(chunk_data, entity_results):
                 if entity_result.get("entities") or entity_result.get("relationships"):
                     store_entities_in_neo4j(

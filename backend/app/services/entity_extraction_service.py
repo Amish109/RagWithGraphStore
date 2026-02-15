@@ -9,11 +9,12 @@ Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, TECHNOLOGY, PRODUC
 Relationship types: WORKS_FOR, LOCATED_IN, PART_OF, RELATED_TO, CREATED_BY, USES, PRODUCES
 """
 
+import asyncio
 import json
 import logging
 import re
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -159,38 +160,70 @@ async def extract_entities_from_chunk(chunk_text: str) -> Dict:
         return {"entities": [], "relationships": []}
 
 
-async def extract_entities_batch(chunks: List[Dict]) -> List[Dict]:
-    """Extract entities from multiple chunks.
+async def extract_entities_batch(
+    chunks: List[Dict],
+    document_id: Optional[str] = None,
+    concurrency: int = 3,
+) -> List[Dict]:
+    """Extract entities from multiple chunks with concurrency and progress tracking.
 
-    Processes each chunk independently. If extraction fails for a chunk,
-    returns empty result for that chunk and continues.
+    Uses asyncio.Semaphore to process up to `concurrency` chunks in parallel,
+    speeding up extraction significantly. Reports per-chunk progress via
+    task_tracker when document_id is provided.
 
     Args:
         chunks: List of chunk dicts (must have 'text' key).
+        document_id: Optional document ID for progress reporting.
+        concurrency: Max number of concurrent LLM calls (default 3).
 
     Returns:
         List of extraction results aligned with input chunks.
     """
-    results = []
-    for i, chunk in enumerate(chunks):
+    from app.utils.task_tracker import TaskStatus, task_tracker
+
+    total = len(chunks)
+    results: List[Optional[Dict]] = [None] * total
+    completed_count = 0
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def process_chunk(index: int, chunk: Dict) -> None:
+        nonlocal completed_count
         text = chunk.get("text", "")
         if not text.strip():
-            results.append({"entities": [], "relationships": []})
-            continue
+            results[index] = {"entities": [], "relationships": []}
+            completed_count += 1
+            return
 
-        result = await extract_entities_from_chunk(text)
-        entity_count = len(result.get("entities", []))
-        rel_count = len(result.get("relationships", []))
-        if entity_count > 0:
-            logger.debug(
-                f"Chunk {i}: extracted {entity_count} entities, {rel_count} relationships"
-            )
-        results.append(result)
+        async with semaphore:
+            result = await extract_entities_from_chunk(text)
+            results[index] = result
+            completed_count += 1
 
-    total_entities = sum(len(r.get("entities", [])) for r in results)
-    total_rels = sum(len(r.get("relationships", [])) for r in results)
+            entity_count = len(result.get("entities", []))
+            rel_count = len(result.get("relationships", []))
+            if entity_count > 0:
+                logger.info(
+                    f"Chunk {index + 1}/{total}: {entity_count} entities, {rel_count} relationships"
+                )
+
+            # Report per-chunk progress (85% → 99%)
+            if document_id:
+                pct = 85 + int((completed_count / total) * 14)
+                task_tracker.update(
+                    document_id,
+                    TaskStatus.EXTRACTING_ENTITIES,
+                    f"Extracting entities: {completed_count}/{total} chunks",
+                    progress=pct,
+                )
+
+    # Launch all tasks with concurrency limit
+    tasks = [process_chunk(i, chunk) for i, chunk in enumerate(chunks)]
+    await asyncio.gather(*tasks)
+
+    total_entities = sum(len(r.get("entities", [])) for r in results if r)
+    total_rels = sum(len(r.get("relationships", [])) for r in results if r)
     logger.info(
         f"Batch extraction complete: {total_entities} entities, "
-        f"{total_rels} relationships from {len(chunks)} chunks"
+        f"{total_rels} relationships from {total} chunks"
     )
-    return results
+    return [r or {"entities": [], "relationships": []} for r in results]

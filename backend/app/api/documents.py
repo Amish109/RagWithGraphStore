@@ -4,8 +4,10 @@ Provides:
 - POST /upload: Upload PDF or DOCX documents for processing
 - GET /: List user's documents
 - GET /{document_id}/status: Get document processing status
+- GET /processing: Get all processing tasks for current user
 
-Following research Pattern 6: Document Upload with Async Processing.
+Uses Celery for background processing — tasks survive server restarts.
+Uses Redis for status tracking — status survives page refreshes.
 Supports both authenticated and anonymous users via get_current_user_optional.
 """
 
@@ -16,7 +18,6 @@ from typing import List
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     HTTPException,
@@ -35,7 +36,6 @@ from app.models.schemas import (
     TaskStatusResponse,
     UserContext,
 )
-from app.services.document_processor import process_document_pipeline
 from app.utils.task_tracker import task_tracker
 
 router = APIRouter()
@@ -49,23 +49,15 @@ ALLOWED_CONTENT_TYPES = {
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: UserContext = Depends(get_current_user_optional),
 ) -> DocumentUploadResponse:
     """Upload a PDF or DOCX document for processing.
 
-    The document will be processed in the background:
-    1. Text extraction (PDF or DOCX)
-    2. Semantic chunking
-    3. Embedding generation
-    4. Storage in Neo4j (metadata) and Qdrant (vectors)
-
-    Implements requirements API-01, DOC-01, DOC-02.
-    Supports both authenticated and anonymous users.
+    The document is saved to disk and a Celery task is dispatched
+    for background processing. Returns immediately with document_id.
 
     Args:
-        background_tasks: FastAPI background tasks.
         file: Uploaded file (PDF or DOCX).
         current_user: UserContext (authenticated or anonymous).
 
@@ -93,22 +85,21 @@ async def upload_document(
 
     # Generate document ID
     document_id = str(uuid.uuid4())
-    user_id = current_user.id  # Works for both authenticated and anonymous
+    user_id = current_user.id
 
-    # Create task for status tracking
+    # Create task in Redis for status tracking (persists across refreshes)
     task_tracker.create(document_id, user_id, file.filename)
 
-    # Save file to temp location for background processing
-    # Use appropriate extension based on content type
+    # Save file to temp location for Celery worker to pick up
     ext = ".pdf" if file.content_type == "application/pdf" else ".docx"
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
         tmp_file.write(content)
         temp_path = tmp_file.name
 
-    # Add document processing to background tasks
-    # This avoids blocking the API response (Pitfall #7)
-    background_tasks.add_task(
-        process_document_pipeline,
+    # Dispatch Celery task — runs in separate worker process
+    from app.tasks import process_document_task
+
+    process_document_task.delay(
         file_path=temp_path,
         document_id=document_id,
         user_id=user_id,
@@ -128,19 +119,35 @@ async def upload_document(
 async def list_documents(
     current_user: UserContext = Depends(get_current_user_optional),
 ) -> List[DocumentInfo]:
-    """List all documents for the current user.
-
-    Works for both authenticated and anonymous users.
-
-    Args:
-        current_user: UserContext (authenticated or anonymous).
-
-    Returns:
-        List of DocumentInfo for user's documents.
-    """
-    user_id = current_user.id  # Works for both authenticated and anonymous
+    """List all documents for the current user."""
+    user_id = current_user.id
     documents = get_user_documents(user_id)
     return [DocumentInfo(**doc) for doc in documents]
+
+
+@router.get("/processing", response_model=List[TaskStatusResponse])
+async def get_processing_documents(
+    current_user: UserContext = Depends(get_current_user_optional),
+) -> List[TaskStatusResponse]:
+    """Get all in-progress processing tasks for the current user.
+
+    Called on page load to restore processing state after refresh.
+    Reads from Redis so it survives server restarts.
+    """
+    user_id = current_user.id
+    tasks = task_tracker.get_user_tasks(user_id)
+    return [
+        TaskStatusResponse(
+            document_id=t["document_id"],
+            status=t["status"],
+            progress=t["progress"],
+            message=t["message"],
+            filename=t.get("filename"),
+            error=t.get("error"),
+        )
+        for t in tasks
+        if t["status"] not in ("completed", "failed")  # Only return active tasks
+    ]
 
 
 @router.get("/{document_id}/status", response_model=TaskStatusResponse)
@@ -148,38 +155,27 @@ async def get_document_status(
     document_id: str,
     current_user: UserContext = Depends(get_current_user_optional),
 ) -> TaskStatusResponse:
-    """Get document processing status.
+    """Get document processing status from Redis.
 
-    Returns current processing stage and progress percentage.
-    If document is fully processed and not in task tracker,
-    returns completed status.
-
-    Args:
-        document_id: UUID of the document.
-        current_user: UserContext (authenticated or anonymous).
-
-    Returns:
-        TaskStatusResponse with status, progress, and message.
-
-    Raises:
-        HTTPException 404: If document not found.
+    Persists across server restarts and page refreshes.
     """
     user_id = current_user.id
 
-    # Check task tracker first (for in-progress documents)
+    # Check Redis task tracker first (for in-progress documents)
     task = task_tracker.get(document_id)
     if task:
         # Verify ownership
-        if task.user_id != user_id:
+        if task["user_id"] != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
         return TaskStatusResponse(
             document_id=document_id,
-            status=task.status.value,
-            progress=task.progress,
-            message=task.message,
-            error=task.error,
+            status=task["status"],
+            progress=task["progress"],
+            message=task["message"],
+            filename=task.get("filename"),
+            error=task.get("error"),
         )
 
     # Check if document exists in Neo4j (already processed)
@@ -202,28 +198,7 @@ async def delete_document_endpoint(
     document_id: str,
     current_user: UserContext = Depends(get_current_user_optional),
 ) -> MessageResponse:
-    """Delete a document and all associated data.
-
-    Implements MGMT-02: Document deletion with cascade.
-
-    CRITICAL: Order matters for consistency (Pitfall #2):
-    1. Verify ownership in Neo4j
-    2. Delete from Qdrant first (no rollback available)
-    3. Delete from Neo4j (transactional)
-
-    If Neo4j deletion fails after Qdrant, vectors are orphaned
-    but that's safer than orphaned Neo4j data with missing vectors.
-
-    Args:
-        document_id: UUID of the document to delete.
-        current_user: Authenticated or anonymous user from JWT/session.
-
-    Returns:
-        MessageResponse confirming deletion.
-
-    Raises:
-        HTTPException 404: If document not found or not owned by user.
-    """
+    """Delete a document and all associated data."""
     user_id = current_user.id
 
     # Step 1: Verify ownership
@@ -235,14 +210,11 @@ async def delete_document_endpoint(
         )
 
     # Step 2: Delete from Qdrant first
-    # (Qdrant has no transaction support, so do it first)
     delete_by_document_id(document_id)
 
     # Step 3: Delete from Neo4j
     deleted = delete_document(document_id, user_id)
     if not deleted:
-        # This shouldn't happen if ownership check passed,
-        # but handle gracefully
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document from database"

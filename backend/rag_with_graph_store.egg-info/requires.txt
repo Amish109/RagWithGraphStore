@@ -20,6 +20,7 @@ python-docx
 pyjwt
 pwdlib[argon2]
 redis
+celery[redis]
 apscheduler
 python-multipart
 python-dotenv

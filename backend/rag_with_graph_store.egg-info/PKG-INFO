@@ -28,6 +28,7 @@ Requires-Dist: python-docx
 Requires-Dist: pyjwt
 Requires-Dist: pwdlib[argon2]
 Requires-Dist: redis
+Requires-Dist: celery[redis]
 Requires-Dist: apscheduler
 Requires-Dist: python-multipart
 Requires-Dist: python-dotenv

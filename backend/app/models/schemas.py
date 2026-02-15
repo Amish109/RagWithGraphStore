@@ -231,6 +231,7 @@ class TaskStatusResponse(BaseModel):
     status: str  # TaskStatus value (pending, extracting, chunking, etc.)
     progress: int  # 0-100 percentage
     message: str  # Human-readable status message
+    filename: Optional[str] = None  # Original filename for display
     error: Optional[str] = None  # Error details if status is "failed"
 
 

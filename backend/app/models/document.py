@@ -141,7 +141,7 @@ def delete_document(document_id: str, user_id: str) -> bool:
                 """
                 UNWIND $entity_ids AS eid
                 MATCH (e:Entity) WHERE id(e) = eid
-                WHERE NOT (e)-[:APPEARS_IN]->()
+                    AND NOT (e)-[:APPEARS_IN]->()
                 DETACH DELETE e
                 """,
                 entity_ids=entity_ids,
