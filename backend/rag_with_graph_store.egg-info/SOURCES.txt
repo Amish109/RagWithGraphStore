@@ -1,7 +1,9 @@
 pyproject.toml
 app/__init__.py
+app/celery_app.py
 app/config.py
 app/main.py
+app/tasks.py
 app/api/__init__.py
 app/api/admin.py
 app/api/auth.py
@@ -44,6 +46,7 @@ app/services/migration_service.py
 app/services/retrieval_service.py
 app/services/simplification_service.py
 app/services/summarization_service.py
+app/services/summary_storage.py
 app/utils/__init__.py
 app/utils/task_tracker.py
 app/workflows/__init__.py

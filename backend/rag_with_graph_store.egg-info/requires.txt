@@ -25,6 +25,8 @@ apscheduler
 python-multipart
 python-dotenv
 sse-starlette
+langchain-neo4j>=0.8.0
+langchain-experimental>=0.4.1
 
 [dev]
 pytest

@@ -1,58 +1,58 @@
 """LLM-based entity and relationship extraction for GraphRAG.
 
+Uses LangChain's LLMGraphTransformer instead of manual prompts — handles
+structured extraction, JSON parsing, and schema enforcement automatically.
+
 Provides:
 - extract_entities_from_chunk(): Extract entities and relationships from chunk text
 - extract_entities_batch(): Batch extraction for multiple chunks
 - normalize_entity_name(): Normalize entity names for deduplication
 
-Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, TECHNOLOGY, PRODUCT
+Entity types: Person, Organization, Location, Concept, Event, Technology, Product
 Relationship types: WORKS_FOR, LOCATED_IN, PART_OF, RELATED_TO, CREATED_BY, USES, PRODUCES
 """
 
 import asyncio
-import json
 import logging
 import re
 import uuid
 from typing import Dict, List, Optional
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
+from langchain_experimental.graph_transformers import LLMGraphTransformer
 
 from app.services.llm_provider import get_llm
 
 logger = logging.getLogger(__name__)
 
-ENTITY_EXTRACTION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are an expert entity and relationship extractor.
-Analyze the text and extract all notable entities and their relationships.
-
-Return ONLY a valid JSON object with this exact structure:
-{{
-  "entities": [
-    {{"name": "Entity Name", "type": "ENTITY_TYPE"}}
-  ],
-  "relationships": [
-    {{"source": "Entity1", "target": "Entity2", "type": "RELATIONSHIP_TYPE", "description": "brief description"}}
-  ]
-}}
-
-Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, TECHNOLOGY, PRODUCT
-Relationship types: WORKS_FOR, LOCATED_IN, PART_OF, RELATED_TO, CREATED_BY, USES, PRODUCES
-
-Rules:
-- Extract only clearly mentioned entities, do not infer
-- Use the most specific entity type that applies
-- Relationships must reference entities in the entities list
-- If no entities found, return {{"entities": [], "relationships": []}}
-- Return ONLY valid JSON, no other text"""),
-    ("user", "{text}")
-])
+# Allowed entity and relationship types — same schema as before
+ALLOWED_NODES = ["Person", "Organization", "Location", "Concept", "Event", "Technology", "Product"]
+ALLOWED_RELATIONSHIPS = ["WORKS_FOR", "LOCATED_IN", "PART_OF", "RELATED_TO", "CREATED_BY", "USES", "PRODUCES"]
 
 # Common suffixes to strip for normalization
 _SUFFIXES = re.compile(
     r"\s*\b(inc\.?|corp\.?|ltd\.?|llc\.?|co\.?|plc\.?|gmbh|s\.a\.?|n\.v\.?)\s*$",
     re.IGNORECASE,
 )
+
+
+def _create_transformer() -> LLMGraphTransformer:
+    """Create a configured LLMGraphTransformer instance.
+
+    This is intentionally NOT cached at module level — callers should create one
+    instance per batch and reuse it across chunks within that batch. This avoids:
+    - Re-initializing the LLM connection for every chunk (expensive)
+    - Global mutable state that could cause issues across concurrent batches
+    """
+    llm = get_llm(temperature=0)
+    return LLMGraphTransformer(
+        llm=llm,
+        allowed_nodes=ALLOWED_NODES,
+        allowed_relationships=ALLOWED_RELATIONSHIPS,
+        node_properties=["description"],
+        relationship_properties=["description"],
+        strict_mode=True,
+    )
 
 
 def normalize_entity_name(name: str) -> str:
@@ -67,93 +67,83 @@ def normalize_entity_name(name: str) -> str:
     return normalized
 
 
-def _parse_json_response(text: str) -> Dict:
-    """Parse JSON from LLM response, handling markdown code blocks."""
-    text = text.strip()
+def _graph_document_to_dict(graph_doc) -> Dict:
+    """Convert LangChain GraphDocument to our internal format.
 
-    # Strip markdown code block if present
-    if text.startswith("```"):
-        lines = text.split("\n")
-        # Remove first line (```json or ```) and last line (```)
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        text = "\n".join(lines).strip()
+    Maps GraphDocument nodes/relationships to the dict format expected
+    by indexing_service.store_entities_in_neo4j().
+    """
+    entities = []
+    seen = set()
 
-    # Try direct parse
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
+    for node in graph_doc.nodes:
+        name = node.id
+        etype = node.type.upper()
+        normalized = normalize_entity_name(name)
+        key = (normalized, etype)
+        if key not in seen:
+            seen.add(key)
+            entities.append({
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "type": etype,
+                "normalized_name": normalized,
+            })
 
-    # Try to find JSON object in the text
-    match = re.search(r"\{[\s\S]*\}", text)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
+    # Build lookup for relationship validation
+    entity_names_normalized = {e["normalized_name"] for e in entities}
 
-    return {"entities": [], "relationships": []}
+    relationships = []
+    for rel in graph_doc.relationships:
+        source = rel.source.id
+        target = rel.target.id
+        rtype = rel.type.upper()
+        desc = rel.properties.get("description", "") if rel.properties else ""
+
+        source_norm = normalize_entity_name(source)
+        target_norm = normalize_entity_name(target)
+
+        if source_norm in entity_names_normalized and target_norm in entity_names_normalized:
+            relationships.append({
+                "source": source,
+                "target": target,
+                "source_normalized": source_norm,
+                "target_normalized": target_norm,
+                "type": rtype,
+                "description": desc,
+            })
+
+    return {"entities": entities, "relationships": relationships}
 
 
-async def extract_entities_from_chunk(chunk_text: str) -> Dict:
+async def extract_entities_from_chunk(
+    chunk_text: str,
+    transformer: Optional[LLMGraphTransformer] = None,
+) -> Dict:
     """Extract entities and relationships from a single chunk.
 
     Args:
         chunk_text: The text content of the chunk.
+        transformer: Pre-built LLMGraphTransformer to reuse. If None, creates
+            a new one (convenience for single-chunk calls outside a batch).
 
     Returns:
-        Dict with 'entities' (list of {name, type}) and
+        Dict with 'entities' (list of {name, type, id, normalized_name}) and
         'relationships' (list of {source, target, type, description}).
     """
-    llm = get_llm(temperature=0)
-
     try:
-        messages = ENTITY_EXTRACTION_PROMPT.format_messages(text=chunk_text)
-        response = await llm.ainvoke(messages)
-        result = _parse_json_response(response.content)
+        if transformer is None:
+            transformer = _create_transformer()
+        doc = Document(page_content=chunk_text)
+        # LLMGraphTransformer.aconvert_to_graph_documents is safe to call
+        # concurrently — each call builds its own prompt/response chain,
+        # so sharing one transformer across concurrent tasks is fine.
+        graph_docs = await transformer.aconvert_to_graph_documents([doc])
 
-        # Validate and normalize entities
-        entities = []
-        seen = set()
-        for entity in result.get("entities", []):
-            name = entity.get("name", "").strip()
-            etype = entity.get("type", "CONCEPT").strip().upper()
-            if not name:
-                continue
-            normalized = normalize_entity_name(name)
-            key = (normalized, etype)
-            if key not in seen:
-                seen.add(key)
-                entities.append({
-                    "id": str(uuid.uuid4()),
-                    "name": name,
-                    "type": etype,
-                    "normalized_name": normalized,
-                })
+        if not graph_docs:
+            return {"entities": [], "relationships": []}
 
-        # Validate relationships — only keep those referencing extracted entities
-        entity_names_normalized = {e["normalized_name"] for e in entities}
-        relationships = []
-        for rel in result.get("relationships", []):
-            source = rel.get("source", "").strip()
-            target = rel.get("target", "").strip()
-            rtype = rel.get("type", "RELATED_TO").strip().upper()
-            desc = rel.get("description", "")
-
-            source_norm = normalize_entity_name(source)
-            target_norm = normalize_entity_name(target)
-
-            if source_norm in entity_names_normalized and target_norm in entity_names_normalized:
-                relationships.append({
-                    "source": source,
-                    "target": target,
-                    "source_normalized": source_norm,
-                    "target_normalized": target_norm,
-                    "type": rtype,
-                    "description": desc,
-                })
-
-        return {"entities": entities, "relationships": relationships}
+        return _graph_document_to_dict(graph_docs[0])
 
     except Exception as e:
         logger.warning(f"Entity extraction failed for chunk: {e}")
@@ -166,10 +156,6 @@ async def extract_entities_batch(
     concurrency: int = 3,
 ) -> List[Dict]:
     """Extract entities from multiple chunks with concurrency and progress tracking.
-
-    Uses asyncio.Semaphore to process up to `concurrency` chunks in parallel,
-    speeding up extraction significantly. Reports per-chunk progress via
-    task_tracker when document_id is provided.
 
     Args:
         chunks: List of chunk dicts (must have 'text' key).
@@ -186,6 +172,13 @@ async def extract_entities_batch(
     completed_count = 0
     semaphore = asyncio.Semaphore(concurrency)
 
+    # Create the transformer ONCE for the entire batch rather than per-chunk.
+    # This avoids re-initializing the LLM client for every chunk, which is the
+    # main performance bottleneck. The instance is local to this call, so
+    # concurrent batch invocations each get their own transformer — no shared
+    # mutable state.
+    transformer = _create_transformer()
+
     async def process_chunk(index: int, chunk: Dict) -> None:
         nonlocal completed_count
         text = chunk.get("text", "")
@@ -195,7 +188,7 @@ async def extract_entities_batch(
             return
 
         async with semaphore:
-            result = await extract_entities_from_chunk(text)
+            result = await extract_entities_from_chunk(text, transformer=transformer)
             results[index] = result
             completed_count += 1
 
@@ -206,7 +199,7 @@ async def extract_entities_batch(
                     f"Chunk {index + 1}/{total}: {entity_count} entities, {rel_count} relationships"
                 )
 
-            # Report per-chunk progress (85% → 99%)
+            # Report per-chunk progress (85% -> 99%)
             if document_id:
                 pct = 85 + int((completed_count / total) * 14)
                 task_tracker.update(
@@ -227,3 +220,13 @@ async def extract_entities_batch(
         f"{total_rels} relationships from {total} chunks"
     )
     return [r or {"entities": [], "relationships": []} for r in results]
+
+
+
+
+
+"""
+
+
+
+"""
