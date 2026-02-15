@@ -8,6 +8,7 @@ Implements QRY-07 (text simplification) via POST /simplify.
 Supports both authenticated and anonymous users via get_current_user_optional.
 """
 
+import asyncio
 import json
 import logging
 from typing import Dict
@@ -44,6 +45,14 @@ from app.services.simplification_service import (
     simplify_text,
 )
 from app.services.summarization_service import SUMMARY_PROMPTS, summarize_document
+from app.services.summary_storage import (
+    get_stream_content_from,
+    get_stream_length,
+    get_summary,
+    get_summary_status,
+    get_type_status,
+    store_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -250,35 +259,30 @@ async def get_document_summary(
     document_id: str,
     summary_type: str = Query(
         default="brief",
+        alias="format",
         enum=["brief", "detailed", "executive", "bullet"],
         description="Type of summary to generate"
     ),
     current_user: UserContext = Depends(get_current_user_optional),
 ):
-    """Get summary of a document (QRY-06).
+    """Get summary of a document.
 
-    Summary types:
-    - brief: 2-3 sentence overview
-    - detailed: Comprehensive coverage of all key points
-    - executive: Business-focused with recommendations
-    - bullet: Key points as bulleted list
-
-    Summaries are cached for performance.
-    Supports both authenticated and anonymous users.
-
-    Args:
-        document_id: ID of the document to summarize.
-        summary_type: Type of summary to generate.
-        current_user: UserContext (authenticated or anonymous).
-
-    Returns:
-        SummaryResponse with document_id, summary_type, summary, method.
-
-    Raises:
-        HTTPException 404: Document not found or user doesn't have access.
+    Returns pre-generated summary instantly from Redis if available.
+    Falls back to on-demand generation for older documents.
     """
     user_id = current_user.id
 
+    # 1. Check Redis for pre-generated summary
+    cached = get_summary(document_id, summary_type)
+    if cached:
+        return SummaryResponse(
+            document_id=document_id,
+            summary_type=summary_type,
+            summary=cached,
+            method="cached",
+        )
+
+    # 2. Fall back to on-demand generation (for pre-existing documents)
     result = await summarize_document(
         document_id=document_id,
         user_id=user_id,
@@ -292,7 +296,131 @@ async def get_document_summary(
             detail="Document not found or you don't have access"
         )
 
+    # Store in Redis for future requests
+    store_summary(document_id, summary_type, result["summary"])
+
     return SummaryResponse(**result)
+
+
+@router.get("/documents/{document_id}/summary/stream")
+async def stream_document_summary(
+    request: Request,
+    document_id: str,
+    summary_type: str = Query(
+        default="brief",
+        alias="format",
+        enum=["brief", "detailed", "executive", "bullet"],
+        description="Type of summary to generate"
+    ),
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Stream summary via SSE by polling Redis.
+
+    The endpoint never calls Ollama directly. Instead:
+    1. If completed summary exists in Redis → send it instantly
+    2. If Celery is already generating → poll Redis for new chunks
+    3. If nothing is happening → dispatch Celery task, then poll Redis
+
+    This decouples the frontend from the LLM call. Celery owns generation,
+    the endpoint just reads from Redis. User can refresh/switch tabs without
+    losing progress — Celery keeps running independently.
+
+    SSE Events:
+    - status: {"stage": "generating"} — Celery is generating
+    - token: partial summary text (new content since last poll)
+    - done: generation complete
+    - error: something went wrong
+    """
+    user_id = current_user.id
+
+    async def event_generator():
+        try:
+            logger.info(f"Summary stream: doc={document_id}, user={user_id}, type={summary_type}")
+
+            # 1. Check completed cache — send instantly
+            cached = get_summary(document_id, summary_type)
+            if cached:
+                logger.info(f"Summary cache hit: doc={document_id}, type={summary_type}")
+                yield {"event": "token", "data": cached}
+                yield {"event": "done", "data": ""}
+                return
+
+            # 2. Check if Celery is already generating, if not dispatch
+            status = get_type_status(document_id, summary_type)
+            if status != "generating":
+                from app.tasks import generate_single_summary_task
+                generate_single_summary_task.apply_async(
+                    kwargs={
+                        "document_id": document_id,
+                        "user_id": user_id,
+                        "summary_type": summary_type,
+                    },
+                    queue="summaries",
+                )
+                logger.info(f"Dispatched Celery task: doc={document_id}, type={summary_type}")
+
+            yield {"event": "status", "data": json.dumps({"stage": "generating"})}
+
+            # 3. Poll Redis for new content from the Celery worker
+            offset = 0
+            idle_count = 0
+            max_idle = 600  # 600 * 0.5s = 5 minutes max wait
+
+            while idle_count < max_idle:
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected: doc={document_id}, type={summary_type}")
+                    return
+
+                # Check if completed while we were polling
+                completed = get_summary(document_id, summary_type)
+                if completed:
+                    # Send any remaining content the client hasn't seen
+                    remaining = completed[offset:]
+                    if remaining:
+                        yield {"event": "token", "data": remaining}
+                    yield {"event": "done", "data": ""}
+                    return
+
+                # Check for generation failure
+                current_status = get_type_status(document_id, summary_type)
+                if current_status == "failed":
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({"message": "Summary generation failed."}),
+                    }
+                    return
+
+                # Read new content from stream
+                new_content = get_stream_content_from(document_id, summary_type, offset)
+                if new_content:
+                    offset += len(new_content)
+                    idle_count = 0
+                    yield {"event": "token", "data": new_content}
+                else:
+                    idle_count += 1
+
+                await asyncio.sleep(0.5)
+
+            # Timed out
+            yield {
+                "event": "error",
+                "data": json.dumps({"message": "Summary generation timed out."}),
+            }
+
+        except Exception as e:
+            logger.exception(f"Summary streaming error: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"message": "Failed to generate summary."}),
+            }
+
+    return EventSourceResponse(
+        event_generator(),
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+        },
+    )
 
 
 @router.post("/simplify", response_model=SimplifyResponse)

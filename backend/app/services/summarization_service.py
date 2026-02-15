@@ -15,7 +15,7 @@ Summary Types:
 
 import hashlib
 import logging
-from typing import Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -195,6 +195,46 @@ async def summarize_document(
         cache_dict[f"summary:{cache_key}"] = result
 
     return result
+
+
+async def stream_summarize_document(
+    document_id: str,
+    user_id: str,
+    summary_type: str = "brief",
+    max_chunks: int = 50,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Stream a document summary token-by-token via SSE.
+
+    For short docs: streams the final summary directly.
+    For long docs: yields progress during map phase, then streams reduce phase.
+
+    Yields dicts with either:
+    - {"type": "progress", "current": N, "total": M} — map phase progress
+    - {"type": "token", "content": str} — summary token
+
+    Raises:
+        ValueError: If document not found or user doesn't have access.
+    """
+    document_text = await get_document_text(document_id, user_id)
+    if not document_text:
+        raise ValueError(f"Document not found or no access: {document_id}")
+
+    summary_prompt = SUMMARY_PROMPTS.get(summary_type, SUMMARY_PROMPTS["brief"])
+    streaming_llm = get_llm(temperature=0.3, streaming=True)
+
+    # Stream directly — llama3.2 supports 128k context, no need for map-reduce
+    # Truncate if extremely long (>100k chars) to stay safe
+    text = document_text[:100000] if len(document_text) > 100000 else document_text
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a document summarization expert. Create clear, accurate summaries."),
+        ("user", "{instruction}\n\nDocument:\n{document}")
+    ])
+    messages = prompt.format_messages(instruction=summary_prompt, document=text)
+
+    async for chunk in streaming_llm.astream(messages):
+        if chunk.content:
+            yield {"type": "token", "content": chunk.content}
 
 
 async def generate_document_summary(chunks: List[str], max_length: int = 500) -> str:

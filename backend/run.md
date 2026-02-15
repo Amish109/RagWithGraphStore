@@ -1,3 +1,23 @@
+docker-compose up -d
+
+# 2. Backend API
+cd backend && uv run uvicorn app.main:app --reload --port 8000
+
+# 3. Upload worker
+cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery
+
+# 4. Summary worker
+cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q summaries
+And for frontend:
+
+
+# 5. Frontend
+cd frontend-next && npm run dev
+
+
+
+
+
 docker-compose up -d 
 <!-- uv run uvicorn app.main:app --reload -->
 

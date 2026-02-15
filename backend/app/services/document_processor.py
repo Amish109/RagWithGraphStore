@@ -263,9 +263,22 @@ async def process_document_pipeline(
                     )
             logger.info(f"Stored entities in Neo4j for {filename}")
 
-        # Step 6: Complete
+        # Step 6: Complete upload pipeline
         task_tracker.complete(document_id, "Document processed successfully")
         logger.info(f"Successfully processed document: {filename} (id: {document_id})")
+
+        # Step 7: Dispatch background summarization (separate queue)
+        from app.tasks import generate_summaries_task
+
+        generate_summaries_task.apply_async(
+            kwargs={
+                "document_id": document_id,
+                "user_id": user_id,
+                "filename": filename,
+            },
+            queue="summaries",
+        )
+        logger.info(f"Dispatched summary generation for {filename}")
 
     except Exception as e:
         logger.error(f"Error processing document {filename}: {e}")

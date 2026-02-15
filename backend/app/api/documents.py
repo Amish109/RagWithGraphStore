@@ -223,4 +223,8 @@ async def delete_document_endpoint(
     # Clean up task tracker if still present
     task_tracker.remove(document_id)
 
+    # Clean up pre-generated summaries from Redis
+    from app.services.summary_storage import delete_summaries
+    delete_summaries(document_id)
+
     return MessageResponse(message="Document deleted successfully")
