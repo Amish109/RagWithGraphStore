@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 const SUMMARY_FORMATS = ["brief", "detailed", "executive", "bullet"] as const;
@@ -215,6 +215,12 @@ export default function DocumentDetailPage({
           </h1>
           <Badge>{document.status}</Badge>
         </div>
+        <Button asChild variant="default" size="sm">
+          <Link href={`/documents/${id}/chat`}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Chat
+          </Link>
+        </Button>
       </div>
 
       <Card>

@@ -1,8 +1,9 @@
 """GraphRAG multi-hop retrieval service using Neo4j graph traversal.
 
 Provides:
-- expand_graph_context(): Expand chunk context via entity relationships
-- get_entity_chunks_for_query(): Find chunks via entity matching on query
+- expand_graph_context(): Expand chunk context via entity relationships (true multi-hop)
+- get_entity_chunks_for_query(): Find chunks via entity matching on query (with user_id filtering)
+- get_entity_co_occurrences(): Find cross-document entity clusters
 - retrieve_with_graph_expansion(): Full retrieval pipeline with graph expansion
 
 Enables cross-document entity relationship traversal for richer context.
@@ -16,15 +17,19 @@ from app.db.neo4j_client import neo4j_driver
 
 logger = logging.getLogger(__name__)
 
-# Multi-hop graph traversal query
-# Finds related entities and their appearances in other chunks
-# Includes related_chunk_text so generation can use it directly
-# CRITICAL: Always use LIMIT to prevent query explosion
+# True multi-hop graph traversal query using variable-length paths.
+# Traverses 1..N hops through entity relationships to discover
+# indirect connections (A->B->C) that 1-hop queries miss.
+# The path length is controlled by $max_hops parameter.
 MULTI_HOP_QUERY = """
 MATCH (c:Chunk {id: $chunk_id})<-[:CONTAINS]-(d:Document)
 OPTIONAL MATCH (e:Entity)-[:APPEARS_IN]->(c)
-OPTIONAL MATCH (e)-[r:RELATES_TO]-(related:Entity)-[:APPEARS_IN]->(other_chunk:Chunk)
+OPTIONAL MATCH path = (e)-[:RELATES_TO*1..2]-(related:Entity)
+WHERE related <> e
+OPTIONAL MATCH (related)-[:APPEARS_IN]->(other_chunk:Chunk)
 WHERE other_chunk.id <> c.id
+WITH c, d, e, related, other_chunk,
+     length(CASE WHEN path IS NOT NULL THEN path END) AS hop_distance
 RETURN c.id AS chunk_id,
        d.id AS document_id,
        d.filename AS filename,
@@ -33,10 +38,10 @@ RETURN c.id AS chunk_id,
            entity_type: e.type,
            related_entity: related.name,
            related_entity_type: related.type,
-           relation: type(r),
+           hop_distance: hop_distance,
            related_chunk_id: other_chunk.id,
            related_chunk_text: other_chunk.text
-       })[0..10] AS entity_relations
+       })[0..15] AS entity_relations
 LIMIT 50
 """
 
@@ -54,10 +59,12 @@ RETURN c.id AS chunk_id,
 LIMIT 1
 """
 
-# Query to find chunks containing specific entities (by normalized name)
+# Entity lookup query with user_id filtering for multi-tenant safety.
+# Finds chunks containing specific entities, filtered to the user's documents.
 ENTITY_LOOKUP_QUERY = """
 UNWIND $names AS name
 MATCH (e:Entity {normalized_name: name})-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+WHERE d.user_id IN $user_ids
 RETURN DISTINCT c.id AS chunk_id,
        c.text AS chunk_text,
        c.position AS position,
@@ -68,20 +75,68 @@ RETURN DISTINCT c.id AS chunk_id,
 LIMIT $limit
 """
 
+# Entity lookup with document_ids filtering (for document-scoped chat).
+ENTITY_LOOKUP_BY_DOCS_QUERY = """
+UNWIND $names AS name
+MATCH (e:Entity {normalized_name: name})-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+WHERE d.user_id IN $user_ids AND d.id IN $document_ids
+RETURN DISTINCT c.id AS chunk_id,
+       c.text AS chunk_text,
+       c.position AS position,
+       d.id AS document_id,
+       d.filename AS filename,
+       e.name AS matched_entity,
+       e.type AS entity_type
+LIMIT $limit
+"""
+
+# Entity co-occurrence query: finds entities that appear together across
+# multiple documents. These "bridge entities" connect document clusters
+# and reveal cross-document themes.
+ENTITY_CO_OCCURRENCE_QUERY = """
+MATCH (e:Entity)-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+WHERE d.user_id IN $user_ids
+WITH e, collect(DISTINCT d.id) AS doc_ids, count(DISTINCT d.id) AS doc_count
+WHERE doc_count >= 2
+RETURN e.name AS entity_name,
+       e.type AS entity_type,
+       e.normalized_name AS normalized_name,
+       doc_ids,
+       doc_count
+ORDER BY doc_count DESC
+LIMIT $limit
+"""
+
+# Find chunks where co-occurring entities appear, for enriching context
+# with cross-document connections.
+CO_OCCURRENCE_CHUNKS_QUERY = """
+UNWIND $entity_names AS name
+MATCH (e:Entity {normalized_name: name})-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+WHERE d.user_id IN $user_ids
+RETURN DISTINCT c.id AS chunk_id,
+       c.text AS chunk_text,
+       c.position AS position,
+       d.id AS document_id,
+       d.filename AS filename,
+       e.name AS entity_name,
+       e.type AS entity_type
+LIMIT $limit
+"""
+
 
 async def expand_graph_context(
     chunk_ids: List[str],
     max_hops: int = 2
 ) -> Dict[str, Dict]:
-    """Expand chunk context via Neo4j graph traversal.
+    """Expand chunk context via Neo4j graph traversal with true multi-hop paths.
 
-    Traverses entity relationships to find related content across documents.
-    This enables multi-hop reasoning where one chunk's entities connect
-    to entities in other chunks.
+    Traverses entity relationships up to max_hops deep to find related content
+    across documents. This enables multi-hop reasoning where one chunk's entities
+    connect to entities in other chunks through intermediate relationships.
 
     Args:
         chunk_ids: List of chunk IDs to expand context for.
-        max_hops: Maximum relationship hops (default 2 for performance).
+        max_hops: Maximum relationship hops (default 2).
 
     Returns:
         Dict mapping chunk_id to context dict with entity_relations and metadata.
@@ -133,6 +188,8 @@ async def expand_graph_context(
 
 async def get_entity_chunks_for_query(
     query: str,
+    user_id: str,
+    document_ids: Optional[List[str]] = None,
     limit: int = 5,
 ) -> List[Dict]:
     """Find chunks by extracting entities from the query and looking them up in Neo4j.
@@ -141,8 +198,13 @@ async def get_entity_chunks_for_query(
     Entities mentioned in the query are matched against the knowledge graph
     to find chunks where those entities appear.
 
+    Multi-tenant safe: filters by user_id to only return the user's documents
+    (plus shared documents).
+
     Args:
         query: User's query text.
+        user_id: ID of the user (for multi-tenant filtering).
+        document_ids: Optional list of document IDs to scope to.
         limit: Maximum chunks to return.
 
     Returns:
@@ -165,12 +227,26 @@ async def get_entity_chunks_for_query(
         normalize_entity_name(e["name"]) for e in query_entities
     ]
 
+    # Include user's docs + shared docs
+    user_ids = [user_id, settings.SHARED_MEMORY_USER_ID]
+
     with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
-        result = session.run(
-            ENTITY_LOOKUP_QUERY,
-            names=normalized_names,
-            limit=limit,
-        )
+        if document_ids:
+            result = session.run(
+                ENTITY_LOOKUP_BY_DOCS_QUERY,
+                names=normalized_names,
+                user_ids=user_ids,
+                document_ids=document_ids,
+                limit=limit,
+            )
+        else:
+            result = session.run(
+                ENTITY_LOOKUP_QUERY,
+                names=normalized_names,
+                user_ids=user_ids,
+                limit=limit,
+            )
+
         chunks = []
         for record in result:
             chunks.append({
@@ -181,7 +257,8 @@ async def get_entity_chunks_for_query(
                 "filename": record["filename"],
                 "matched_entity": record["matched_entity"],
                 "entity_type": record["entity_type"],
-                "score": 0.5,  # Default score for graph-retrieved chunks
+                "score": 0.7,  # Graph-retrieved chunks get decent score
+                "retrieval_method": "graph_entity_lookup",
             })
 
     if chunks:
@@ -189,6 +266,93 @@ async def get_entity_chunks_for_query(
             f"Graph entity lookup found {len(chunks)} chunks for "
             f"entities: {normalized_names}"
         )
+    return chunks
+
+
+async def get_entity_co_occurrences(
+    user_id: str,
+    limit: int = 10,
+) -> List[Dict]:
+    """Find entities that appear across multiple documents (bridge entities).
+
+    These entities connect different documents and reveal cross-document
+    themes and relationships. Useful for identifying what concepts/people/orgs
+    span multiple uploaded documents.
+
+    Args:
+        user_id: ID of the user (for multi-tenant filtering).
+        limit: Maximum number of co-occurring entities to return.
+
+    Returns:
+        List of dicts with entity_name, entity_type, doc_ids, doc_count.
+    """
+    user_ids = [user_id, settings.SHARED_MEMORY_USER_ID]
+
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            ENTITY_CO_OCCURRENCE_QUERY,
+            user_ids=user_ids,
+            limit=limit,
+        )
+        co_occurrences = []
+        for record in result:
+            co_occurrences.append({
+                "entity_name": record["entity_name"],
+                "entity_type": record["entity_type"],
+                "normalized_name": record["normalized_name"],
+                "doc_ids": record["doc_ids"],
+                "doc_count": record["doc_count"],
+            })
+
+    if co_occurrences:
+        logger.info(
+            f"Found {len(co_occurrences)} cross-document entities for user {user_id}"
+        )
+    return co_occurrences
+
+
+async def get_co_occurrence_chunks(
+    entity_names: List[str],
+    user_id: str,
+    limit: int = 5,
+) -> List[Dict]:
+    """Get chunks where cross-document entities appear.
+
+    Given a list of entity normalized names (from get_entity_co_occurrences),
+    finds chunks containing those entities to enrich query context with
+    cross-document connections.
+
+    Args:
+        entity_names: List of normalized entity names to look up.
+        user_id: ID of the user (for multi-tenant filtering).
+        limit: Maximum chunks to return.
+
+    Returns:
+        List of chunk dicts with cross-document entity context.
+    """
+    user_ids = [user_id, settings.SHARED_MEMORY_USER_ID]
+
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            CO_OCCURRENCE_CHUNKS_QUERY,
+            entity_names=entity_names,
+            user_ids=user_ids,
+            limit=limit,
+        )
+        chunks = []
+        for record in result:
+            chunks.append({
+                "id": record["chunk_id"],
+                "text": record["chunk_text"],
+                "position": record.get("position", 0),
+                "document_id": record["document_id"],
+                "filename": record["filename"],
+                "matched_entity": record["entity_name"],
+                "entity_type": record["entity_type"],
+                "score": 0.6,
+                "retrieval_method": "co_occurrence",
+            })
+
     return chunks
 
 

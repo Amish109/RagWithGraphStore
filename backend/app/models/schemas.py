@@ -106,7 +106,8 @@ class QueryRequest(BaseModel):
 
     query: str
     max_results: int = 3
-    include_graph_context: bool = False
+    include_graph_context: bool = True
+    document_ids: Optional[List[str]] = None
 
 
 class Citation(BaseModel):

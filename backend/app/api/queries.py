@@ -37,6 +37,7 @@ from app.services.generation_service import (
 )
 from app.services.retrieval_service import (
     extract_highlighted_citations,
+    retrieve_for_documents,
     retrieve_relevant_context,
 )
 from app.services.simplification_service import (
@@ -157,12 +158,22 @@ async def query_stream(
                 "data": json.dumps({"stage": "retrieving"})
             }
 
-            context = await retrieve_relevant_context(
-                query=query_request.query,
-                user_id=user_id,
-                max_results=query_request.max_results,
-                include_graph_context=query_request.include_graph_context,
-            )
+            # Use document-scoped retrieval if document_ids provided
+            if query_request.document_ids:
+                context = await retrieve_for_documents(
+                    query=query_request.query,
+                    user_id=user_id,
+                    document_ids=query_request.document_ids,
+                    max_results=query_request.max_results,
+                    include_graph_context=query_request.include_graph_context,
+                )
+            else:
+                context = await retrieve_relevant_context(
+                    query=query_request.query,
+                    user_id=user_id,
+                    max_results=query_request.max_results,
+                    include_graph_context=query_request.include_graph_context,
+                )
 
             # Step 1b: Include shared memory context
             memory_chunks = []
@@ -571,3 +582,27 @@ async def query_documents_enhanced(
         confidence=confidence,
         citations=citations,
     )
+
+
+@router.get("/graph/entities")
+async def get_cross_document_entities(
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Get entities that appear across multiple documents.
+
+    Returns "bridge entities" — concepts, people, organizations, etc.
+    that connect different documents in the user's collection.
+    Useful for discovering cross-document themes and relationships.
+
+    Returns:
+        List of entities with their type, document count, and document IDs.
+    """
+    from app.services.graphrag_service import get_entity_co_occurrences
+
+    user_id = current_user.id
+    co_occurrences = await get_entity_co_occurrences(user_id=user_id, limit=20)
+
+    return {
+        "entities": co_occurrences,
+        "count": len(co_occurrences),
+    }

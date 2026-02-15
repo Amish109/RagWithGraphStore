@@ -13,12 +13,18 @@ export interface StreamCallbacks {
 export async function streamQuery(
   question: string,
   callbacks: StreamCallbacks,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  documentIds?: string[]
 ) {
+  const body: Record<string, unknown> = { query: question };
+  if (documentIds && documentIds.length > 0) {
+    body.document_ids = documentIds;
+  }
+
   const res = await fetch(`${API_URL}/api/v1/query/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: question }),
+    body: JSON.stringify(body),
     credentials: "include",
     signal,
   });

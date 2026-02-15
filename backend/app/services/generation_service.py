@@ -3,6 +3,7 @@
 This module provides answer generation using LangChain with configurable LLM provider.
 Implements strict "I don't know" fallback to prevent hallucination.
 Supports both synchronous and streaming responses.
+Includes entity relationship context from GraphRAG with multi-hop distance info.
 """
 
 from typing import AsyncGenerator, Dict, List
@@ -14,6 +15,60 @@ from app.services.llm_provider import get_llm
 
 # Initialize LLM with deterministic settings
 llm = get_llm(temperature=0)
+
+
+def _assemble_context(context: List[Dict]) -> str:
+    """Assemble context text from chunks, including entity relationships.
+
+    Formats entity relationships with hop distance when available,
+    and includes retrieval method info for hybrid search results.
+
+    Args:
+        context: List of context chunks with 'text' and optional metadata.
+
+    Returns:
+        Formatted context string for the LLM prompt.
+    """
+    context_parts = []
+    for chunk in context:
+        part = f"[Source: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
+
+        # Add entity match info if this chunk was found via graph lookup
+        matched_entity = chunk.get("matched_entity")
+        if matched_entity:
+            entity_type = chunk.get("entity_type", "")
+            part += f"\n[Matched entity: {matched_entity} ({entity_type})]"
+
+        # Add entity relationships with hop distance
+        entity_rels = chunk.get("entity_relations", [])
+        if entity_rels:
+            rel_lines = []
+            for r in entity_rels[:8]:
+                if not (r.get("entity") and r.get("related_entity")):
+                    continue
+                relation = r.get("relation", "RELATED_TO")
+                hop = r.get("hop_distance")
+                hop_label = f" (hop {hop})" if hop and hop > 1 else ""
+                rel_lines.append(
+                    f"  - {r['entity']} --[{relation}]--> {r['related_entity']}{hop_label}"
+                )
+            if rel_lines:
+                part += "\n\nRelated entities:\n" + "\n".join(rel_lines)
+
+        context_parts.append(part)
+    return "\n\n".join(context_parts)
+
+
+# System prompt used for both streaming and non-streaming
+_SYSTEM_PROMPT = """You are a helpful Q&A assistant. Answer questions ONLY based on the provided context, which may include documents, shared memory facts, and entity relationships from a knowledge graph.
+
+CRITICAL INSTRUCTIONS:
+- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided context."
+- Do not use any knowledge outside the provided context
+- Cite the source (document name or "Shared Memory") when referencing information
+- Use entity relationships to provide more comprehensive, cross-document answers when relevant
+- When entities appear across multiple documents, synthesize information from all relevant sources
+- Be concise and direct"""
 
 
 async def generate_answer(query: str, context: List[Dict]) -> str:
@@ -29,32 +84,10 @@ async def generate_answer(query: str, context: List[Dict]) -> str:
     Returns:
         Generated answer string.
     """
-    # Assemble context from chunks, including entity relationships when present
-    context_parts = []
-    for chunk in context:
-        part = f"[Source: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
-        entity_rels = chunk.get("entity_relations", [])
-        if entity_rels:
-            rel_lines = [
-                f"  - {r['entity']} --[{r.get('relation', 'RELATED_TO')}]--> {r['related_entity']}"
-                for r in entity_rels[:5]
-                if r.get("entity") and r.get("related_entity")
-            ]
-            if rel_lines:
-                part += "\n\nRelated entities:\n" + "\n".join(rel_lines)
-        context_parts.append(part)
-    context_text = "\n\n".join(context_parts)
+    context_text = _assemble_context(context)
 
-    # Prompt template with strict constraints
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful Q&A assistant. Answer questions ONLY based on the provided context, which may include documents, shared memory facts, and entity relationships from a knowledge graph.
-
-CRITICAL INSTRUCTIONS:
-- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided context."
-- Do not use any knowledge outside the provided context
-- Cite the source (document name or "Shared Memory") when referencing information
-- Use entity relationships to provide more comprehensive, cross-document answers when relevant
-- Be concise and direct"""),
+        ("system", _SYSTEM_PROMPT),
         ("user", """Context:
 {context}
 
@@ -63,7 +96,6 @@ Question: {query}
 Answer:""")
     ])
 
-    # Generate response
     messages = prompt.format_messages(context=context_text, query=query)
     response = await llm.ainvoke(messages)
 
@@ -92,32 +124,10 @@ async def stream_answer(query: str, context: List[Dict]) -> AsyncGenerator[str, 
     Yields:
         String chunks as they are generated by the LLM.
     """
-    # Assemble context from chunks, including entity relationships when present
-    context_parts = []
-    for chunk in context:
-        part = f"[Source: {chunk.get('filename', 'Unknown')}]\n{chunk['text']}"
-        entity_rels = chunk.get("entity_relations", [])
-        if entity_rels:
-            rel_lines = [
-                f"  - {r['entity']} --[{r.get('relation', 'RELATED_TO')}]--> {r['related_entity']}"
-                for r in entity_rels[:5]
-                if r.get("entity") and r.get("related_entity")
-            ]
-            if rel_lines:
-                part += "\n\nRelated entities:\n" + "\n".join(rel_lines)
-        context_parts.append(part)
-    context_text = "\n\n".join(context_parts)
+    context_text = _assemble_context(context)
 
-    # Same prompt template as non-streaming
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful Q&A assistant. Answer questions ONLY based on the provided context, which may include documents, shared memory facts, and entity relationships from a knowledge graph.
-
-CRITICAL INSTRUCTIONS:
-- If the context does not contain information to answer the question, respond EXACTLY with: "I don't know. I couldn't find information about this in the provided context."
-- Do not use any knowledge outside the provided context
-- Cite the source (document name or "Shared Memory") when referencing information
-- Use entity relationships to provide more comprehensive, cross-document answers when relevant
-- Be concise and direct"""),
+        ("system", _SYSTEM_PROMPT),
         ("user", """Context:
 {context}
 
