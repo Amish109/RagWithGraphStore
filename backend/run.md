@@ -3,13 +3,19 @@ docker-compose up -d
 <!-- - cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery,summaries,entities -->
 
 /*
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery -n upload@%h
 
-- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q summaries -n summaries@%h
+
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q entities -n entities@%h
+
+
+<!-- - cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery
 
 - cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q summaries
 
 
-- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q entities
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q entities -->
 
 
 */
