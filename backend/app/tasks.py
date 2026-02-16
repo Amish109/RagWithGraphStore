@@ -1,18 +1,22 @@
-"""Celery tasks for document processing and summarization.
+"""Celery tasks for document processing, summarization, and entity extraction.
 
-Two queues:
+Three queues:
 - 'celery' (default): Document upload processing
 - 'summaries': Background summary pre-generation
+- 'entities': Background entity extraction (GraphRAG)
 
-Start workers:
-  Upload:    celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery
-  Summaries: celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q summaries
+Start workers (all queues):
+  celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery,summaries,entities
 """
 
 import asyncio
+import json
 import logging
 
+import redis
+
 from app.celery_app import celery
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -178,3 +182,128 @@ def generate_summaries_task(
             queue="summaries",
         )
         logger.info(f"Dispatched {summary_type} summary task for {filename}")
+
+
+# --- Entity extraction Redis helpers ---
+
+_ENTITY_STATUS_PREFIX = "entity_status:"
+_ENTITY_STATUS_TTL = 86400  # 24 hours
+
+
+def _set_entity_status(document_id: str, data: dict) -> None:
+    """Store entity extraction status in Redis."""
+    r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    r.setex(f"{_ENTITY_STATUS_PREFIX}{document_id}", _ENTITY_STATUS_TTL, json.dumps(data))
+
+
+def get_entity_status(document_id: str) -> dict | None:
+    """Get entity extraction status from Redis."""
+    r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    raw = r.get(f"{_ENTITY_STATUS_PREFIX}{document_id}")
+    return json.loads(raw) if raw else None
+
+
+@celery.task(bind=True, name="extract_entities")
+def extract_entities_task(
+    self,
+    document_id: str,
+    user_id: str,
+    filename: str,
+):
+    """Extract entities from document chunks in the background.
+
+    Loads chunks from Neo4j, runs LLM-based entity extraction,
+    stores results back to Neo4j. Tracks progress in Redis.
+    """
+    from app.db.neo4j_client import neo4j_driver
+    from app.services.entity_extraction_service import extract_entities_batch
+    from app.services.indexing_service import store_entities_in_neo4j
+
+    logger.info(f"Entity extraction started: {filename} (id: {document_id})")
+
+    # Load chunks from Neo4j
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            """
+            MATCH (d:Document {id: $doc_id})-[:CONTAINS]->(c:Chunk)
+            RETURN c.id AS id, c.text AS text, c.position AS position
+            ORDER BY c.position
+            """,
+            doc_id=document_id,
+        )
+        chunks = [{"id": r["id"], "text": r["text"], "position": r["position"]} for r in result]
+
+    if not chunks:
+        logger.warning(f"No chunks found for entity extraction: {document_id}")
+        _set_entity_status(document_id, {
+            "status": "failed", "message": "No chunks found",
+            "progress": 0, "total_chunks": 0, "completed_chunks": 0, "total_entities": 0,
+        })
+        return
+
+    total = len(chunks)
+    _set_entity_status(document_id, {
+        "status": "extracting", "message": f"Extracting entities: 0/{total} chunks",
+        "progress": 0, "total_chunks": total, "completed_chunks": 0, "total_entities": 0,
+    })
+
+    def progress_callback(completed: int, total_chunks: int, entities_so_far: int):
+        pct = int((completed / total_chunks) * 100)
+        _set_entity_status(document_id, {
+            "status": "extracting",
+            "message": f"Extracting entities: {completed}/{total_chunks} chunks",
+            "progress": pct,
+            "total_chunks": total_chunks,
+            "completed_chunks": completed,
+            "total_entities": entities_so_far,
+        })
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        entity_results = loop.run_until_complete(
+            extract_entities_batch(
+                chunks, document_id=document_id,
+                progress_callback=progress_callback,
+            )
+        )
+
+        # Store in Neo4j
+        total_entities = 0
+        total_rels = 0
+        for chunk, entity_result in zip(chunks, entity_results):
+            if entity_result.get("entities") or entity_result.get("relationships"):
+                store_entities_in_neo4j(
+                    chunk_id=chunk["id"],
+                    entities=entity_result.get("entities", []),
+                    relationships=entity_result.get("relationships", []),
+                )
+                total_entities += len(entity_result.get("entities", []))
+                total_rels += len(entity_result.get("relationships", []))
+
+        _set_entity_status(document_id, {
+            "status": "completed",
+            "message": f"{total_entities} entities, {total_rels} relationships extracted",
+            "progress": 100,
+            "total_chunks": total,
+            "completed_chunks": total,
+            "total_entities": total_entities,
+        })
+        logger.info(f"Entity extraction completed: {filename} — {total_entities} entities, {total_rels} rels")
+
+    except Exception as e:
+        logger.error(f"Entity extraction failed: {filename} (id: {document_id}): {e}")
+        _set_entity_status(document_id, {
+            "status": "failed", "message": str(e),
+            "progress": 0, "total_chunks": total, "completed_chunks": 0, "total_entities": 0,
+        })
+    finally:
+        try:
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            loop.close()

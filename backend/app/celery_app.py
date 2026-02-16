@@ -25,6 +25,8 @@ celery.conf.update(
     task_acks_late=True,  # Acknowledge after task completes (retry on worker crash)
     worker_prefetch_multiplier=1,  # Don't grab extra tasks
     result_expires=3600,  # Results expire after 1 hour
+    task_time_limit=None,  # No hard time limit (solo pool can't kill tasks)
+    task_soft_time_limit=None,  # No soft time limit
     task_routes={
         "generate_summaries": {"queue": "summaries"},
         "generate_single_summary": {"queue": "summaries"},

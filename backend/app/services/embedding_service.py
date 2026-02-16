@@ -11,8 +11,9 @@ from app.config import settings
 from app.services.llm_provider import get_embedding_model
 
 
-# Initialize embedding model from configured provider
-_embedding_model = get_embedding_model()
+def _get_model():
+    """Get a fresh embedding model instance (avoids stale event loop references)."""
+    return get_embedding_model()
 
 
 async def generate_embeddings(texts: List[str]) -> List[List[float]]:
@@ -24,7 +25,7 @@ async def generate_embeddings(texts: List[str]) -> List[List[float]]:
     Returns:
         List of embedding vectors (each vector is a list of floats).
     """
-    return await _embedding_model.aembed_documents(texts)
+    return await _get_model().aembed_documents(texts)
 
 
 async def generate_query_embedding(query: str) -> List[float]:
@@ -38,7 +39,7 @@ async def generate_query_embedding(query: str) -> List[float]:
     Returns:
         Embedding vector as list of floats.
     """
-    return await _embedding_model.aembed_query(query)
+    return await _get_model().aembed_query(query)
 
 
 async def validate_embedding_dimensions() -> None:

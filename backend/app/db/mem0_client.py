@@ -41,6 +41,20 @@ def init_mem0() -> Memory:
                 "temperature": 0.1,
             },
         }
+    elif llm_provider == "openrouter":
+        # Mem0's OpenAI LLM has built-in OpenRouter support via openrouter_base_url
+        llm_config = {
+            "provider": "openai",
+            "config": {
+                "model": settings.OPENROUTER_MODEL,
+                "temperature": 0.1,
+                "api_key": settings.OPENROUTER_API_KEY,
+                "openrouter_base_url": settings.OPENROUTER_BASE_URL,
+            },
+        }
+        # Mem0 also checks os.environ for OPENROUTER_API_KEY
+        import os
+        os.environ.setdefault("OPENROUTER_API_KEY", settings.OPENROUTER_API_KEY or "")
     else:
         llm_config = {
             "provider": "openai",
@@ -58,6 +72,7 @@ def init_mem0() -> Memory:
             "config": {
                 "model": settings.OLLAMA_EMBEDDING_MODEL,
                 "ollama_base_url": settings.OLLAMA_BASE_URL,
+                "embedding_dims": settings.OLLAMA_EMBEDDING_DIMENSIONS,
             },
         }
     else:
@@ -65,6 +80,7 @@ def init_mem0() -> Memory:
             "provider": "openai",
             "config": {
                 "model": settings.OPENAI_EMBEDDING_MODEL,
+                "embedding_dims": settings.OPENAI_EMBEDDING_DIMENSIONS,
             },
         }
 
@@ -78,6 +94,7 @@ def init_mem0() -> Memory:
                 "collection_name": "memory",  # SEPARATE from documents collection
                 "host": settings.QDRANT_HOST,
                 "port": settings.QDRANT_PORT,
+                "embedding_model_dims": settings.EMBEDDING_DIMENSIONS,
             },
         },
         "graph_store": {

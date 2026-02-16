@@ -36,6 +36,7 @@ app/services/confidence_service.py
 app/services/document_processor.py
 app/services/embedding_service.py
 app/services/entity_extraction_service.py
+app/services/entity_extraction_service_backup.py
 app/services/generation_service.py
 app/services/graphrag_service.py
 app/services/indexing_service.py

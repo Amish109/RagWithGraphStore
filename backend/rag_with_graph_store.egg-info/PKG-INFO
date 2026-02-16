@@ -35,6 +35,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: sse-starlette
 Requires-Dist: langchain-neo4j>=0.8.0
 Requires-Dist: langchain-experimental>=0.4.1
+Requires-Dist: rank-bm25>=0.2.2
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"

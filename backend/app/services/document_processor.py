@@ -243,33 +243,26 @@ async def process_document_pipeline(
         store_chunks_in_qdrant(chunk_data)
         logger.info(f"Stored vectors in Qdrant for {filename}")
 
-        # Step 5b: Extract and store entities (GraphRAG)
-        if settings.GRAPHRAG_ENABLED:
-            task_tracker.update(
-                document_id,
-                TaskStatus.EXTRACTING_ENTITIES,
-                f"Extracting entities from {len(chunk_data)} chunks",
-            )
-            from app.services.entity_extraction_service import extract_entities_batch
-            from app.services.indexing_service import store_entities_in_neo4j
-
-            entity_results = await extract_entities_batch(chunk_data, document_id=document_id)
-            for chunk_datum, entity_result in zip(chunk_data, entity_results):
-                if entity_result.get("entities") or entity_result.get("relationships"):
-                    store_entities_in_neo4j(
-                        chunk_id=chunk_datum["id"],
-                        entities=entity_result.get("entities", []),
-                        relationships=entity_result.get("relationships", []),
-                    )
-            logger.info(f"Stored entities in Neo4j for {filename}")
-
-        # Step 6: Complete upload pipeline
+        # Step 5: Complete upload pipeline
         task_tracker.complete(document_id, "Document processed successfully")
         logger.info(f"Successfully processed document: {filename} (id: {document_id})")
 
-        # Step 7: Dispatch background summarization (separate queue)
-        from app.tasks import generate_summaries_task
+        # Step 6: Dispatch background tasks (run in parallel on separate queues)
+        from app.tasks import extract_entities_task, generate_summaries_task
 
+        # 6a: Entity extraction (entities queue)
+        if settings.GRAPHRAG_ENABLED:
+            extract_entities_task.apply_async(
+                kwargs={
+                    "document_id": document_id,
+                    "user_id": user_id,
+                    "filename": filename,
+                },
+                queue="entities",
+            )
+            logger.info(f"Dispatched entity extraction for {filename}")
+
+        # 6b: Summary generation (summaries queue)
         generate_summaries_task.apply_async(
             kwargs={
                 "document_id": document_id,

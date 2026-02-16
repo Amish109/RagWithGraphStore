@@ -46,6 +46,7 @@ from app.services.simplification_service import (
     simplify_text,
 )
 from app.services.summarization_service import SUMMARY_PROMPTS, summarize_document
+from app.models.document import get_document_by_id
 from app.services.summary_storage import (
     get_stream_content_from,
     get_stream_length,
@@ -174,6 +175,35 @@ async def query_stream(
                     max_results=query_request.max_results,
                     include_graph_context=query_request.include_graph_context,
                 )
+
+            # Step 1a: Inject document metadata + summary for document-specific chat
+            if query_request.document_ids:
+                doc_preambles = []
+                for doc_id in query_request.document_ids:
+                    doc_meta = get_document_by_id(doc_id, user_id)
+                    brief_summary = get_summary(doc_id, "brief")
+
+                    if doc_meta or brief_summary:
+                        parts = []
+                        if doc_meta:
+                            fname = doc_meta.get("filename", "Unknown")
+                            ftype = (doc_meta.get("file_type") or "unknown").upper()
+                            chunks = doc_meta.get("chunk_count", "unknown")
+                            parts.append(f"Document: {fname} (Type: {ftype}, Chunks: {chunks})")
+                        if brief_summary:
+                            parts.append(f"Document Summary: {brief_summary}")
+
+                        if parts:
+                            doc_preambles.append({
+                                "text": "\n".join(parts),
+                                "document_id": doc_id,
+                                "filename": doc_meta.get("filename", "Document Overview") if doc_meta else "Document Overview",
+                                "score": 1.0,
+                                "id": f"preamble-{doc_id}",
+                                "position": -1,
+                            })
+
+                context["chunks"] = doc_preambles + context["chunks"]
 
             # Step 1b: Include shared memory context
             memory_chunks = []
@@ -432,6 +462,34 @@ async def stream_document_summary(
             "Cache-Control": "no-cache",
         },
     )
+
+
+@router.post("/documents/{document_id}/summary/regenerate")
+async def regenerate_summary(
+    document_id: str,
+    summary_type: str = Query(
+        default="brief",
+        alias="format",
+        enum=["brief", "detailed", "executive", "bullet"],
+    ),
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Delete cached summary and trigger regeneration.
+
+    Clears the existing summary from Redis. The frontend then calls
+    the stream endpoint which auto-dispatches a new Celery task.
+    """
+    import redis as redis_lib
+    from app.config import settings as app_settings
+    from app.services.summary_storage import clear_stream, set_type_status
+
+    r = redis_lib.from_url(app_settings.REDIS_URL, decode_responses=True)
+    r.delete(f"summary:{document_id}:{summary_type}")
+
+    set_type_status(document_id, summary_type, "pending")
+    clear_stream(document_id, summary_type)
+
+    return {"message": f"Summary '{summary_type}' cleared. Re-request via stream endpoint."}
 
 
 @router.post("/simplify", response_model=SimplifyResponse)

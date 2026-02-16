@@ -39,12 +39,18 @@ _SUFFIXES = re.compile(
 def _create_transformer() -> LLMGraphTransformer:
     """Create a configured LLMGraphTransformer instance.
 
-    This is intentionally NOT cached at module level — callers should create one
-    instance per batch and reuse it across chunks within that batch. This avoids:
-    - Re-initializing the LLM connection for every chunk (expensive)
-    - Global mutable state that could cause issues across concurrent batches
+    Uses GRAPHRAG_LLM_PROVIDER / GRAPHRAG_LLM_MODEL if set, otherwise
+    falls back to the default LLM_PROVIDER. This allows using a faster
+    provider (e.g. OpenAI) for entity extraction while keeping Ollama
+    for everything else.
     """
-    llm = get_llm(temperature=0)
+    from app.config import settings
+
+    llm = get_llm(
+        temperature=0,
+        provider=settings.GRAPHRAG_LLM_PROVIDER,
+        model=settings.GRAPHRAG_LLM_MODEL,
+    )
     return LLMGraphTransformer(
         llm=llm,
         allowed_nodes=ALLOWED_NODES,
@@ -153,30 +159,30 @@ async def extract_entities_from_chunk(
 async def extract_entities_batch(
     chunks: List[Dict],
     document_id: Optional[str] = None,
-    concurrency: int = 3,
+    concurrency: Optional[int] = None,
+    progress_callback: Optional[callable] = None,
 ) -> List[Dict]:
     """Extract entities from multiple chunks with concurrency and progress tracking.
 
     Args:
         chunks: List of chunk dicts (must have 'text' key).
         document_id: Optional document ID for progress reporting.
-        concurrency: Max number of concurrent LLM calls (default 3).
+        concurrency: Max concurrent LLM calls. If None, uses settings.GRAPHRAG_CONCURRENCY.
+        progress_callback: Optional callback(completed, total, entities_so_far) for progress.
 
     Returns:
         List of extraction results aligned with input chunks.
     """
-    from app.utils.task_tracker import TaskStatus, task_tracker
+    from app.config import settings
+
+    if concurrency is None:
+        concurrency = settings.GRAPHRAG_CONCURRENCY
 
     total = len(chunks)
     results: List[Optional[Dict]] = [None] * total
     completed_count = 0
     semaphore = asyncio.Semaphore(concurrency)
 
-    # Create the transformer ONCE for the entire batch rather than per-chunk.
-    # This avoids re-initializing the LLM client for every chunk, which is the
-    # main performance bottleneck. The instance is local to this call, so
-    # concurrent batch invocations each get their own transformer — no shared
-    # mutable state.
     transformer = _create_transformer()
 
     async def process_chunk(index: int, chunk: Dict) -> None:
@@ -199,17 +205,10 @@ async def extract_entities_batch(
                     f"Chunk {index + 1}/{total}: {entity_count} entities, {rel_count} relationships"
                 )
 
-            # Report per-chunk progress (85% -> 99%)
-            if document_id:
-                pct = 85 + int((completed_count / total) * 14)
-                task_tracker.update(
-                    document_id,
-                    TaskStatus.EXTRACTING_ENTITIES,
-                    f"Extracting entities: {completed_count}/{total} chunks",
-                    progress=pct,
-                )
+            if progress_callback:
+                entities_so_far = sum(len(r.get("entities", [])) for r in results if r)
+                progress_callback(completed_count, total, entities_so_far)
 
-    # Launch all tasks with concurrency limit
     tasks = [process_chunk(i, chunk) for i, chunk in enumerate(chunks)]
     await asyncio.gather(*tasks)
 

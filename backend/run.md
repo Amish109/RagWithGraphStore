@@ -1,5 +1,25 @@
 docker-compose up -d
+##
+<!-- - cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery,summaries,entities -->
 
+/*
+
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q celery
+
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q summaries
+
+
+- cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --pool=solo -Q entities
+
+
+*/
+
+
+- cd backend && uv run uvicorn app.main:app --reload --port 8000
+- cd frontend-next && npm run dev
+
+- uv run python scripts/create_admin.py admin@example.com admin
+##
 # 2. Backend API
 cd backend && uv run uvicorn app.main:app --reload --port 8000
 

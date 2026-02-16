@@ -56,10 +56,9 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION: str = "documents"
 
     # LLM Provider Selection
-    # Supported: "openai", "ollama", "anthropic"
-    # Use "openai" + OPENAI_BASE_URL for any OpenAI-compatible API (Groq, DeepSeek, etc.)
+    # Supported: "openai", "ollama", "anthropic", "openrouter"
     LLM_PROVIDER: str = "openai"
-    EMBEDDING_PROVIDER: str = "openai"  # "openai" or "ollama" (Anthropic has no embeddings)
+    EMBEDDING_PROVIDER: str = "openai"  # "openai" or "ollama" (Anthropic/OpenRouter have no embeddings)
 
     # OpenAI Configuration (used when provider = "openai")
     OPENAI_API_KEY: Optional[str] = None
@@ -71,6 +70,12 @@ class Settings(BaseSettings):
     # Anthropic Configuration (used when LLM_PROVIDER = "anthropic")
     ANTHROPIC_API_KEY: Optional[str] = None
     ANTHROPIC_MODEL: str = "claude-sonnet-4-5-20250929"
+
+    # OpenRouter Configuration (used when LLM_PROVIDER = "openrouter")
+    # Access 200+ models (GPT-4o, Claude, Llama, Gemini, Mistral, etc.) via one API key
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_MODEL: str = "openai/gpt-4o-mini"  # Any model from openrouter.ai/models
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # Ollama Configuration (used when provider = "ollama")
     OLLAMA_BASE_URL: str = "http://localhost:11434"
@@ -112,6 +117,9 @@ class Settings(BaseSettings):
     GRAPHRAG_ENABLED: bool = True  # Master toggle for entity extraction during upload
     GRAPHRAG_MAX_ENTITIES_PER_CHUNK: int = 20
     GRAPHRAG_MAX_HOPS: int = 2
+    GRAPHRAG_LLM_PROVIDER: Optional[str] = None  # Override LLM for entity extraction (None = use LLM_PROVIDER)
+    GRAPHRAG_LLM_MODEL: Optional[str] = None  # Override model for entity extraction (None = use provider default)
+    GRAPHRAG_CONCURRENCY: int = 3  # Max concurrent LLM calls for entity extraction
 
 
 # Global settings instance

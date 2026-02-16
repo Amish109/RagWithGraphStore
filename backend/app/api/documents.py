@@ -193,6 +193,28 @@ async def get_document_status(
     )
 
 
+@router.get("/{document_id}/entity-status")
+async def get_entity_extraction_status(
+    document_id: str,
+    current_user: UserContext = Depends(get_current_user_optional),
+):
+    """Get entity extraction status for a document."""
+    from app.tasks import get_entity_status
+
+    # Verify document ownership
+    doc = get_document_by_id(document_id, current_user.id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    entity_status = get_entity_status(document_id)
+    if not entity_status:
+        return {"status": "not_started", "progress": 0, "message": "Entity extraction not started"}
+
+    return entity_status
+
+
 @router.delete("/{document_id}", response_model=MessageResponse)
 async def delete_document_endpoint(
     document_id: str,

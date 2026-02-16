@@ -9,10 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, FileText, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2, MessageSquare, RefreshCw, Network } from "lucide-react";
 import Link from "next/link";
 
 const SUMMARY_FORMATS = ["brief", "detailed", "executive", "bullet"] as const;
+
+interface EntityStatus {
+  status: string;
+  progress: number;
+  message: string;
+  total_chunks?: number;
+  completed_chunks?: number;
+  total_entities?: number;
+}
 
 export default function DocumentDetailPage({
   params,
@@ -27,7 +36,10 @@ export default function DocumentDetailPage({
   const [summaryStage, setSummaryStage] = useState<string>("");
   const [summaryProgress, setSummaryProgress] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [entityStatus, setEntityStatus] = useState<EntityStatus | null>(null);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("brief");
 
   useEffect(() => {
     return () => {
@@ -53,6 +65,48 @@ export default function DocumentDetailPage({
     }
     fetchDoc();
   }, [id]);
+
+  // Poll entity extraction status
+  useEffect(() => {
+    if (!document) return;
+
+    let cancelled = false;
+
+    async function pollEntityStatus() {
+      try {
+        const res = await apiFetch(`/api/v1/documents/${id}/entity-status`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setEntityStatus(data);
+          return data.status;
+        }
+      } catch {
+        // ignore
+      }
+      return null;
+    }
+
+    // Initial fetch
+    pollEntityStatus().then((status) => {
+      if (status === "extracting" || status === "not_started") {
+        // Start polling
+        const interval = setInterval(async () => {
+          const s = await pollEntityStatus();
+          if (cancelled || (s !== "extracting" && s !== "not_started")) {
+            clearInterval(interval);
+          }
+        }, 3000);
+        return () => {
+          cancelled = true;
+          clearInterval(interval);
+        };
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [document, id]);
 
   const loadSummary = useCallback(
     async (format: string) => {
@@ -89,7 +143,7 @@ export default function DocumentDetailPage({
         let accumulated = "";
         let buffer = "";
         let currentEvent = "";
-        let dataLineCount = 0; // Track consecutive data lines for newline handling
+        let dataLineCount = 0;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -101,7 +155,6 @@ export default function DocumentDetailPage({
           for (const line of lines) {
             const trimmedLine = line.replace(/\r$/, "");
 
-            // Empty line = end of SSE event block
             if (trimmedLine === "") {
               dataLineCount = 0;
               continue;
@@ -145,8 +198,7 @@ export default function DocumentDetailPage({
                   // ignore parse errors
                 }
               } else if (currentEvent === "token") {
-                setSummaryProgress(""); // Clear progress once tokens start
-                // Per SSE spec, join multiple data lines with newlines
+                setSummaryProgress("");
                 if (dataLineCount > 0) {
                   accumulated += "\n";
                 }
@@ -158,7 +210,6 @@ export default function DocumentDetailPage({
           }
         }
 
-        // Stream ended without explicit done event
         if (accumulated) {
           setSummaries((prev) => ({ ...prev, [format]: accumulated }));
         }
@@ -171,6 +222,91 @@ export default function DocumentDetailPage({
       }
     },
     [id, summaries]
+  );
+
+  const handleRegenerate = async (format: string) => {
+    setRegenerating(format);
+    try {
+      const res = await apiFetch(
+        `/api/v1/query/documents/${id}/summary/regenerate?format=${format}`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        // Clear local cached summary so loadSummary will re-fetch
+        setSummaries((prev) => {
+          const next = { ...prev };
+          delete next[format];
+          return next;
+        });
+        // Trigger re-stream
+        loadSummary(format);
+      } else {
+        toast.error("Failed to regenerate summary");
+      }
+    } catch {
+      toast.error("Failed to regenerate summary");
+    } finally {
+      setRegenerating(null);
+    }
+  };
+
+  const downloadSummaryPdf = useCallback(
+    async (format: "current" | "all" = "current") => {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const maxWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const addText = (text: string, size: number, bold: boolean = false) => {
+        doc.setFontSize(size);
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        const lines = doc.splitTextToSize(text, maxWidth);
+        for (const line of lines) {
+          if (y + size * 0.4 > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(line, margin, y);
+          y += size * 0.45;
+        }
+      };
+
+      // Title
+      addText(document!.filename, 18, true);
+      y += 4;
+      addText(`Generated on ${new Date().toLocaleDateString()}`, 9);
+      y += 8;
+
+      const formatsToExport =
+        format === "all"
+          ? SUMMARY_FORMATS.filter((f) => summaries[f])
+          : [activeTab];
+
+      for (const fmt of formatsToExport) {
+        const text = summaries[fmt];
+        if (!text) continue;
+
+        if (format === "all" && fmt !== formatsToExport[0]) {
+          y += 6;
+        }
+        addText(`${fmt.charAt(0).toUpperCase() + fmt.slice(1)} Summary`, 14, true);
+        y += 3;
+
+        // Draw separator line
+        doc.setDrawColor(200);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 5;
+
+        addText(text, 10);
+        y += 4;
+      }
+
+      const suffix = format === "all" ? "all-summaries" : `${activeTab}-summary`;
+      doc.save(`${document!.filename.replace(/\.[^.]+$/, "")}-${suffix}.pdf`);
+    },
+    [document, summaries, activeTab]
   );
 
   // Auto-load brief summary when document is ready
@@ -253,12 +389,66 @@ export default function DocumentDetailPage({
         </CardContent>
       </Card>
 
+      {/* Entity extraction status */}
+      {entityStatus && entityStatus.status !== "not_started" && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Network className="h-4 w-4" />
+              Knowledge Graph
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {entityStatus.status === "extracting" ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{entityStatus.message}</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${entityStatus.progress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground/60">
+                  {entityStatus.total_entities || 0} entities found so far
+                </p>
+              </div>
+            ) : entityStatus.status === "completed" ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="secondary">
+                  {entityStatus.total_entities || 0} entities
+                </Badge>
+                <span className="text-muted-foreground">
+                  {entityStatus.message}
+                </span>
+              </div>
+            ) : entityStatus.status === "failed" ? (
+              <p className="text-sm text-destructive">
+                Entity extraction failed: {entityStatus.message}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Summaries</CardTitle>
+          {Object.keys(summaries).length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadSummaryPdf("all")}
+            >
+              <Download className="h-3 w-3 mr-2" />
+              Download All as PDF
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="brief" onValueChange={loadSummary}>
+          <Tabs defaultValue="brief" onValueChange={(v) => { setActiveTab(v); loadSummary(v); }}>
             <TabsList>
               {SUMMARY_FORMATS.map((format) => (
                 <TabsTrigger key={format} value={format} className="capitalize">
@@ -296,8 +486,33 @@ export default function DocumentDetailPage({
                     )}
                   </div>
                 ) : summaries[format] ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none py-4 whitespace-pre-wrap">
-                    {summaries[format]}
+                  <div className="py-4">
+                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                      {summaries[format]}
+                    </div>
+                    <div className="mt-4 pt-3 border-t flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRegenerate(format)}
+                        disabled={regenerating === format}
+                      >
+                        {regenerating === format ? (
+                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 mr-2" />
+                        )}
+                        Regenerate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadSummaryPdf("current")}
+                      >
+                        <Download className="h-3 w-3 mr-2" />
+                        Download PDF
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">

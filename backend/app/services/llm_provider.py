@@ -1,13 +1,13 @@
 """LLM and Embedding provider factory for multi-provider support.
 
-Supports OpenAI, Ollama, and Anthropic (Claude).
-OpenAI provider also works with any OpenAI-compatible API (Groq, DeepSeek, Azure, etc.)
-via the OPENAI_BASE_URL setting.
+Supports OpenAI, Ollama, Anthropic (Claude), and OpenRouter.
+OpenRouter gives access to 200+ models (GPT-4o, Claude, Llama, Gemini, Mistral, etc.)
+via a single API key, using the OpenAI-compatible API format.
 
 Uses LangChain's base classes to ensure a unified interface across providers.
 
 Configuration is driven by environment variables:
-- LLM_PROVIDER: "openai", "ollama", or "anthropic"
+- LLM_PROVIDER: "openai", "ollama", "anthropic", or "openrouter"
 - EMBEDDING_PROVIDER: "openai" or "ollama"
 """
 
@@ -27,14 +27,16 @@ def get_llm(
     streaming: bool = False,
     logprobs: bool = False,
     provider: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> BaseChatModel:
     """Create an LLM instance based on the configured provider.
 
     Args:
         temperature: Sampling temperature (0 = deterministic).
         streaming: Enable streaming for token-by-token output.
-        logprobs: Enable log probabilities (OpenAI only, ignored for others).
+        logprobs: Enable log probabilities (OpenAI/OpenRouter only, ignored for others).
         provider: Override the configured provider. If None, uses settings.LLM_PROVIDER.
+        model: Override the model name. If None, uses provider default from settings.
 
     Returns:
         A LangChain BaseChatModel instance.
@@ -48,7 +50,7 @@ def get_llm(
         from langchain_openai import ChatOpenAI
 
         kwargs = {
-            "model": settings.OPENAI_MODEL,
+            "model": model or settings.OPENAI_MODEL,
             "temperature": temperature,
             "openai_api_key": settings.OPENAI_API_KEY,
             "streaming": streaming,
@@ -60,11 +62,30 @@ def get_llm(
 
         return ChatOpenAI(**kwargs)
 
+    elif provider == "openrouter":
+        from langchain_openai import ChatOpenAI
+
+        kwargs = {
+            "model": model or settings.OPENROUTER_MODEL,
+            "temperature": temperature,
+            "openai_api_key": settings.OPENROUTER_API_KEY,
+            "openai_api_base": settings.OPENROUTER_BASE_URL,
+            "streaming": streaming,
+            "default_headers": {
+                "HTTP-Referer": "http://localhost:3000",
+                "X-Title": "RAG With GraphStore",
+            },
+        }
+        if logprobs:
+            kwargs["logprobs"] = True
+
+        return ChatOpenAI(**kwargs)
+
     elif provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
         kwargs = {
-            "model": settings.ANTHROPIC_MODEL,
+            "model": model or settings.ANTHROPIC_MODEL,
             "temperature": temperature,
             "anthropic_api_key": settings.ANTHROPIC_API_KEY,
             "streaming": streaming,
@@ -76,7 +97,7 @@ def get_llm(
         from langchain_ollama import ChatOllama
 
         kwargs = {
-            "model": settings.OLLAMA_MODEL,
+            "model": model or settings.OLLAMA_MODEL,
             "temperature": temperature,
             "base_url": settings.OLLAMA_BASE_URL,
         }
@@ -86,7 +107,7 @@ def get_llm(
     else:
         raise ValueError(
             f"Unsupported LLM provider: '{provider}'. "
-            f"Supported: openai, anthropic, ollama"
+            f"Supported: openai, openrouter, anthropic, ollama"
         )
 
 
@@ -128,7 +149,7 @@ def get_embedding_model(provider: Optional[str] = None) -> Embeddings:
         raise ValueError(
             f"Unsupported embedding provider: '{provider}'. "
             f"Supported: openai, ollama "
-            f"(Anthropic does not provide embeddings — use openai or ollama for EMBEDDING_PROVIDER)"
+            f"(Anthropic/OpenRouter do not provide embeddings — use openai or ollama for EMBEDDING_PROVIDER)"
         )
 
 
@@ -142,4 +163,4 @@ def supports_logprobs(provider: Optional[str] = None) -> bool:
         True if the provider supports logprobs, False otherwise.
     """
     provider = (provider or settings.LLM_PROVIDER).lower()
-    return provider == "openai"
+    return provider in ("openai", "openrouter")
