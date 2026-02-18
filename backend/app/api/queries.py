@@ -205,35 +205,30 @@ async def query_stream(
 
                 context["chunks"] = doc_preambles + context["chunks"]
 
-            # Step 1b: Include shared memory context
+            # Step 1b: Include memory context (all users — anonymous get personal only, logged-in get shared too)
             memory_chunks = []
-            if not current_user.is_anonymous:
-                try:
-                    from app.services.memory_service import search_with_shared
-                    memories = await search_with_shared(
-                        user_id=user_id,
-                        query=query_request.query,
-                        limit=5,
-                        include_shared=True,
-                    )
-                    print(f"[STREAM] user={user_id}, is_anon={current_user.is_anonymous}, memories_found={len(memories)}")
-                    memory_chunks = [
-                        {
-                            "text": m.get("memory", ""),
-                            "document_id": "memory",
-                            "filename": "Shared Memory" if m.get("is_shared") else "User Memory",
-                            "score": m.get("score", 0.5),
-                            "id": m.get("id", ""),
-                            "position": 0,
-                        }
-                        for m in memories
-                        if m.get("memory")
-                    ]
-                    print(f"[STREAM] memory_chunks={len(memory_chunks)}, texts={[c['text'][:50] for c in memory_chunks]}")
-                except Exception as e:
-                    logger.warning(f"Memory retrieval failed: {e}")
-            else:
-                print(f"[STREAM] Skipping memory — user is anonymous: {user_id}")
+            try:
+                from app.services.memory_service import search_with_shared
+                memories = await search_with_shared(
+                    user_id=user_id,
+                    query=query_request.query,
+                    limit=5,
+                    include_shared=not current_user.is_anonymous,
+                )
+                memory_chunks = [
+                    {
+                        "text": m.get("memory", ""),
+                        "document_id": "memory",
+                        "filename": "Shared Memory" if m.get("is_shared") else "User Memory",
+                        "score": m.get("score", 0.5),
+                        "id": m.get("id", ""),
+                        "position": 0,
+                    }
+                    for m in memories
+                    if m.get("memory")
+                ]
+            except Exception as e:
+                logger.warning(f"Memory retrieval failed: {e}")
 
             # Merge document chunks with memory chunks
             all_chunks = context["chunks"] + memory_chunks
@@ -270,13 +265,31 @@ async def query_stream(
                 "data": json.dumps({"stage": "generating"})
             }
 
+            full_response = []
             async for token in stream_answer(query_request.query, all_chunks):
                 # Check for client disconnect (Pitfall #5)
                 if await request.is_disconnected():
                     break
+                full_response.append(token)
                 yield {"event": "token", "data": token}
 
             yield {"event": "done", "data": ""}
+
+            # Step 5: Save conversation to memory (all users — anonymous get personal session memory too)
+            if full_response:
+                try:
+                    from app.db.mem0_client import get_mem0
+                    mem0 = get_mem0()
+                    response_text = "".join(full_response)
+                    mem0.add(
+                        messages=[
+                            {"role": "user", "content": query_request.query},
+                            {"role": "assistant", "content": response_text},
+                        ],
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"Memory save failed: {e}")
 
         except Exception as e:
             # Log error but send user-friendly message

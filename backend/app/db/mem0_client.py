@@ -42,15 +42,17 @@ def init_mem0() -> Memory:
             },
         }
     elif llm_provider == "openrouter":
-        # Mem0's OpenAI LLM has built-in OpenRouter support via openrouter_base_url
+        openrouter_llm_config = {
+            "model": settings.OPENROUTER_MODEL,
+            "temperature": 0.1,
+            "api_key": settings.OPENROUTER_API_KEY,
+            "openrouter_base_url": settings.OPENROUTER_BASE_URL,
+        }
+        if settings.OPENROUTER_MAX_TOKENS:
+            openrouter_llm_config["max_tokens"] = settings.OPENROUTER_MAX_TOKENS
         llm_config = {
             "provider": "openai",
-            "config": {
-                "model": settings.OPENROUTER_MODEL,
-                "temperature": 0.1,
-                "api_key": settings.OPENROUTER_API_KEY,
-                "openrouter_base_url": settings.OPENROUTER_BASE_URL,
-            },
+            "config": openrouter_llm_config,
         }
         # Mem0 also checks os.environ for OPENROUTER_API_KEY
         import os

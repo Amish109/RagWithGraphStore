@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini"  # Any model from openrouter.ai/models
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MAX_TOKENS: Optional[int] = None  # Set to cap tokens per request (e.g. 4096 for free tier)
 
     # Ollama Configuration (used when provider = "ollama")
     OLLAMA_BASE_URL: str = "http://localhost:11434"
