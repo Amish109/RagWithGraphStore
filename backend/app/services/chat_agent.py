@@ -261,7 +261,8 @@ async def run_agent(
             elif kind == "on_tool_end":
                 now = time.perf_counter()
                 tool_name = event.get("name", "")
-                logger.info(f"[{now - t_start:.1f}s] Tool finished: {tool_name} (+{now - t_last:.1f}s)")
+                tool_output = event.get("data", {}).get("output", "")
+                logger.info(f"[{now - t_start:.1f}s] Tool finished: {tool_name} (+{now - t_last:.1f}s) | output={str(tool_output)[:300]}")
                 t_last = now
 
             # Chat model stream → emit TokenEvent for final response

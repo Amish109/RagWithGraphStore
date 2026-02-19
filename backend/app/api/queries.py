@@ -153,6 +153,7 @@ async def query_stream(
         EventSourceResponse streaming tokens and metadata.
     """
     user_id = current_user.id
+    logger.info(f"query_stream: user_id={user_id}, is_anonymous={current_user.is_anonymous}, query={query_request.query[:80]}")
 
     async def agent_event_generator():
         """Agent-based flow for tool-capable LLM providers."""

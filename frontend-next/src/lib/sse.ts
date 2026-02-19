@@ -63,13 +63,25 @@ export async function streamQuery(
       const event = value;
       if (!event.data) continue;
 
+      const eventType = event.event;
+
+      // Token events are raw strings, not JSON — handle them directly
+      if (eventType === "token") {
+        callbacks.onToken(event.data);
+        continue;
+      }
+
+      // Done events have empty data
+      if (eventType === "done") {
+        callbacks.onDone();
+        continue;
+      }
+
+      // All other events (status, tool_call, citations, confidence, error) are JSON
       try {
         const data = JSON.parse(event.data);
 
-        switch (event.event || data.type) {
-          case "token":
-            callbacks.onToken(data.token || data.content || "");
-            break;
+        switch (eventType || data.type) {
           case "citations":
             callbacks.onCitations(data.citations || []);
             break;
@@ -82,14 +94,12 @@ export async function streamQuery(
               args: data.args || {},
             });
             break;
-          case "done":
-            callbacks.onDone();
-            break;
           case "error":
             callbacks.onError(data.message || "Stream error");
             break;
         }
       } catch {
+        // Unparseable non-token data — treat as token fallback
         if (event.data && event.data !== "[DONE]") {
           callbacks.onToken(event.data);
         }
