@@ -48,6 +48,11 @@ export interface SSEEvent {
   data: string;
 }
 
+export interface ToolCallInfo {
+  name: string;
+  args: Record<string, unknown>;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -56,6 +61,7 @@ export interface ChatMessage {
   confidence?: number;
   confidence_level?: "high" | "medium" | "low";
   timestamp: Date;
+  toolCalls?: ToolCallInfo[];
 }
 
 export interface ComparisonResult {

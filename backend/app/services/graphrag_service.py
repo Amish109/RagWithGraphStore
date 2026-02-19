@@ -356,6 +356,90 @@ async def get_co_occurrence_chunks(
     return chunks
 
 
+async def get_document_entities(
+    document_id: str,
+    user_id: str,
+    limit: int = 20,
+) -> List[Dict]:
+    """Get all entities extracted from a specific document.
+
+    Args:
+        document_id: ID of the document.
+        user_id: ID of the user (for ownership verification).
+        limit: Maximum entities to return.
+
+    Returns:
+        List of dicts with name, type, normalized_name.
+    """
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            """
+            MATCH (u:User {id: $user_id})-[:OWNS]->(d:Document {id: $document_id})
+            MATCH (d)-[:CONTAINS]->(c:Chunk)<-[:APPEARS_IN]-(e:Entity)
+            RETURN DISTINCT e.name AS name, e.type AS type, e.normalized_name AS normalized_name
+            ORDER BY e.name
+            LIMIT $limit
+            """,
+            document_id=document_id,
+            user_id=user_id,
+            limit=limit,
+        )
+        entities = [dict(r) for r in result]
+
+    if entities:
+        logger.info(
+            f"Found {len(entities)} entities for document {document_id}"
+        )
+    return entities
+
+
+async def get_entity_relationships(
+    entity_name: str,
+    user_id: str,
+    limit: int = 20,
+) -> List[Dict]:
+    """Get relationships for a named entity in the knowledge graph.
+
+    Args:
+        entity_name: Name of the entity to look up (case-insensitive).
+        user_id: ID of the user (for multi-tenant filtering).
+        limit: Maximum relationships to return.
+
+    Returns:
+        List of dicts with source, relationship, target, and target_type.
+    """
+    from app.services.entity_extraction_service import normalize_entity_name
+
+    normalized = normalize_entity_name(entity_name)
+    user_ids = [user_id, settings.SHARED_MEMORY_USER_ID]
+
+    with neo4j_driver.session(database=settings.NEO4J_DATABASE) as session:
+        result = session.run(
+            """
+            MATCH (e:Entity {normalized_name: $name})-[r:RELATES_TO]-(related:Entity)
+            WHERE EXISTS {
+                MATCH (e)-[:APPEARS_IN]->(c:Chunk)<-[:CONTAINS]-(d:Document)
+                WHERE d.user_id IN $user_ids
+            }
+            RETURN DISTINCT e.name AS source,
+                   type(r) AS relationship,
+                   related.name AS target,
+                   related.type AS target_type
+            LIMIT $limit
+            """,
+            name=normalized,
+            user_ids=user_ids,
+            limit=limit,
+        )
+        relationships = [dict(r) for r in result]
+
+    if relationships:
+        logger.info(
+            f"Found {len(relationships)} relationships for entity '{entity_name}'"
+        )
+    return relationships
+
+
 async def retrieve_with_graph_expansion(
     query: str,
     user_id: str,

@@ -108,6 +108,7 @@ class QueryRequest(BaseModel):
     max_results: int = 3
     include_graph_context: bool = True
     document_ids: Optional[List[str]] = None
+    chat_history: Optional[List[dict]] = None  # [{"role": "user"|"assistant", "content": "..."}]
 
 
 class Citation(BaseModel):

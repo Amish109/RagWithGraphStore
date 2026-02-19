@@ -2,10 +2,16 @@ import { EventSourceParserStream } from "eventsource-parser/stream";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export interface ToolCallInfo {
+  name: string;
+  args: Record<string, unknown>;
+}
+
 export interface StreamCallbacks {
   onToken: (token: string) => void;
   onCitations: (citations: unknown[]) => void;
   onConfidence: (confidence: number, level: string) => void;
+  onToolCall?: (toolCall: ToolCallInfo) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -14,11 +20,15 @@ export async function streamQuery(
   question: string,
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
-  documentIds?: string[]
+  documentIds?: string[],
+  chatHistory?: Array<{ role: string; content: string }>,
 ) {
   const body: Record<string, unknown> = { query: question };
   if (documentIds && documentIds.length > 0) {
     body.document_ids = documentIds;
+  }
+  if (chatHistory && chatHistory.length > 0) {
+    body.chat_history = chatHistory;
   }
 
   const res = await fetch(`${API_URL}/api/v1/query/stream`, {
@@ -65,6 +75,12 @@ export async function streamQuery(
             break;
           case "confidence":
             callbacks.onConfidence(data.score || 0, data.level || "low");
+            break;
+          case "tool_call":
+            callbacks.onToolCall?.({
+              name: data.name || "",
+              args: data.args || {},
+            });
             break;
           case "done":
             callbacks.onDone();

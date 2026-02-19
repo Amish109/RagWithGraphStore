@@ -5,7 +5,28 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { CitationList } from "./citation-list";
-import { User, Bot } from "lucide-react";
+import { User, Bot, Search, FileText, Brain, Network } from "lucide-react";
+
+const TOOL_LABELS: Record<string, { label: string; icon: "search" | "file" | "brain" | "network" }> = {
+  search_documents: { label: "Searching documents", icon: "search" },
+  list_user_documents: { label: "Listing documents", icon: "file" },
+  get_document_info: { label: "Reading document info", icon: "file" },
+  get_document_summary: { label: "Reading summary", icon: "file" },
+  get_document_entities: { label: "Finding entities", icon: "network" },
+  get_cross_document_entities: { label: "Analyzing connections", icon: "network" },
+  search_memories: { label: "Searching memories", icon: "brain" },
+  get_entity_relationships: { label: "Exploring relationships", icon: "network" },
+};
+
+function ToolIcon({ type }: { type: string }) {
+  switch (type) {
+    case "search": return <Search className="h-3 w-3" />;
+    case "file": return <FileText className="h-3 w-3" />;
+    case "brain": return <Brain className="h-3 w-3" />;
+    case "network": return <Network className="h-3 w-3" />;
+    default: return <Search className="h-3 w-3" />;
+  }
+}
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -45,6 +66,20 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           isUser ? "text-right" : "text-left"
         )}
       >
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {message.toolCalls.map((tc, i) => {
+              const info = TOOL_LABELS[tc.name] || { label: tc.name, icon: "search" };
+              return (
+                <Badge key={i} variant="secondary" className="text-xs gap-1 font-normal">
+                  <ToolIcon type={info.icon} />
+                  {info.label}
+                </Badge>
+              );
+            })}
+          </div>
+        )}
+
         <div
           className={cn(
             "inline-block rounded-lg px-4 py-2 text-sm",

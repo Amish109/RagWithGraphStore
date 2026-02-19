@@ -10,7 +10,7 @@ import { MessageBubble } from "@/components/chat/message-bubble";
 import { Send, Trash2 } from "lucide-react";
 
 export default function ChatPage() {
-  const { messages, isStreaming, addMessage, updateLastMessage, setStreaming, clearMessages } =
+  const { messages, isStreaming, addMessage, updateLastMessage, addToolCall, setStreaming, clearMessages } =
     useChatStore();
   const [input, setInput] = useState("");
   const abortRef = useRef<AbortController | null>(null);
@@ -62,6 +62,12 @@ export default function ChatPage() {
     let finalConfidence = 0;
     let finalLevel = "low";
 
+    // Build chat history from recent messages (last 10, excluding the current empty assistant message)
+    const recentHistory = messages
+      .slice(-10)
+      .filter((m) => m.content)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     await streamQuery(
       question,
       {
@@ -75,6 +81,9 @@ export default function ChatPage() {
         onConfidence: (confidence, level) => {
           finalConfidence = confidence;
           finalLevel = level;
+        },
+        onToolCall: (toolCall) => {
+          addToolCall(toolCall);
         },
         onDone: () => {
           // Update last message with citations and confidence
@@ -98,7 +107,9 @@ export default function ChatPage() {
           setStreaming(false);
         },
       },
-      abortRef.current.signal
+      abortRef.current.signal,
+      undefined,
+      recentHistory,
     );
   };
 

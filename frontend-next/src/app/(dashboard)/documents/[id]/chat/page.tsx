@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, use } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { streamQuery } from "@/lib/sse";
-import type { ChatMessage, Citation, Document } from "@/lib/types";
+import type { ChatMessage, Citation, Document, ToolCallInfo } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,20 @@ export default function DocumentChatPage({
     });
   };
 
+  const addToolCallToLast = (toolCall: ToolCallInfo) => {
+    setMessages((prev) => {
+      const msgs = [...prev];
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === "assistant") {
+        msgs[msgs.length - 1] = {
+          ...last,
+          toolCalls: [...(last.toolCalls || []), toolCall],
+        };
+      }
+      return msgs;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
@@ -104,6 +118,12 @@ export default function DocumentChatPage({
     let finalConfidence = 0;
     let finalLevel = "low";
 
+    // Build chat history from recent messages (last 10, excluding the current empty assistant message)
+    const recentHistory = messages
+      .slice(-10)
+      .filter((m) => m.content)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     await streamQuery(
       question,
       {
@@ -117,6 +137,9 @@ export default function DocumentChatPage({
         onConfidence: (confidence, level) => {
           finalConfidence = confidence;
           finalLevel = level;
+        },
+        onToolCall: (toolCall) => {
+          addToolCallToLast(toolCall);
         },
         onDone: () => {
           setMessages((prev) => {
@@ -141,7 +164,8 @@ export default function DocumentChatPage({
         },
       },
       abortRef.current.signal,
-      [id]
+      [id],
+      recentHistory,
     );
   };
 

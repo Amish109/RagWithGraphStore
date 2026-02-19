@@ -164,3 +164,16 @@ def supports_logprobs(provider: Optional[str] = None) -> bool:
     """
     provider = (provider or settings.LLM_PROVIDER).lower()
     return provider in ("openai", "openrouter")
+
+
+def supports_tool_calling(provider: Optional[str] = None) -> bool:
+    """Check if the configured LLM provider supports tool calling via bind_tools().
+
+    Args:
+        provider: Override the configured provider. If None, uses settings.LLM_PROVIDER.
+
+    Returns:
+        True if the provider supports tool calling, False otherwise.
+    """
+    provider = (provider or settings.LLM_PROVIDER).lower()
+    return provider in ("openai", "anthropic", "openrouter")

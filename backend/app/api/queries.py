@@ -132,10 +132,13 @@ async def query_stream(
 ):
     """Stream query response using Server-Sent Events (SSE).
 
-    Implements QRY-02: Streaming responses with visible progress.
+    Uses an LLM agent with tool-calling for providers that support it
+    (OpenAI, Anthropic, OpenRouter). Falls back to direct retrieval pipeline
+    for providers without tool support (Ollama).
 
     SSE Event Types:
-    - status: Processing stage updates ({"stage": "retrieving"|"generating"})
+    - status: Processing stage updates ({"stage": "thinking"|"retrieving"|"generating"})
+    - tool_call: Agent is calling a tool ({"name": "...", "args": {...}})
     - citations: Source documents found (list of citation objects)
     - token: Individual response tokens as they are generated
     - done: Stream complete signal
@@ -143,7 +146,7 @@ async def query_stream(
 
     Args:
         request: FastAPI request (for disconnect detection).
-        query_request: QueryRequest with query string and max_results.
+        query_request: QueryRequest with query string, max_results, and optional chat_history.
         current_user: Authenticated or anonymous user from JWT/session.
 
     Returns:
@@ -151,7 +154,78 @@ async def query_stream(
     """
     user_id = current_user.id
 
-    async def event_generator():
+    async def agent_event_generator():
+        """Agent-based flow for tool-capable LLM providers."""
+        from app.services.chat_agent import (
+            DoneEvent,
+            StatusEvent,
+            TokenEvent,
+            ToolCallEvent,
+            run_agent,
+        )
+
+        try:
+            yield {
+                "event": "status",
+                "data": json.dumps({"stage": "thinking"}),
+            }
+
+            full_response_tokens = []
+
+            async for event in run_agent(
+                query=query_request.query,
+                user_id=user_id,
+                document_ids=query_request.document_ids,
+                chat_history=query_request.chat_history,
+                include_shared_memory=not current_user.is_anonymous,
+            ):
+                if await request.is_disconnected():
+                    break
+
+                if isinstance(event, ToolCallEvent):
+                    yield {
+                        "event": "tool_call",
+                        "data": json.dumps({
+                            "name": event.name,
+                            "args": event.args,
+                        }),
+                    }
+                elif isinstance(event, StatusEvent):
+                    yield {
+                        "event": "status",
+                        "data": json.dumps({"stage": event.stage}),
+                    }
+                elif isinstance(event, TokenEvent):
+                    full_response_tokens.append(event.token)
+                    yield {"event": "token", "data": event.token}
+                elif isinstance(event, DoneEvent):
+                    yield {"event": "done", "data": ""}
+
+            # Save conversation to memory after completion
+            if full_response_tokens:
+                try:
+                    from app.db.mem0_client import get_mem0
+                    mem0 = get_mem0()
+                    response_text = "".join(full_response_tokens)
+                    mem0.add(
+                        messages=[
+                            {"role": "user", "content": query_request.query},
+                            {"role": "assistant", "content": response_text},
+                        ],
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"Memory save failed: {e}")
+
+        except Exception as e:
+            logger.exception(f"Agent streaming error: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"message": "An error occurred while generating the response."}),
+            }
+
+    async def fallback_event_generator():
+        """Direct retrieval pipeline for providers without tool support (Ollama)."""
         try:
             # Step 1: Retrieve context
             yield {
@@ -205,7 +279,7 @@ async def query_stream(
 
                 context["chunks"] = doc_preambles + context["chunks"]
 
-            # Step 1b: Include memory context (all users — anonymous get personal only, logged-in get shared too)
+            # Step 1b: Include memory context
             memory_chunks = []
             try:
                 from app.services.memory_service import search_with_shared
@@ -232,7 +306,6 @@ async def query_stream(
 
             # Merge document chunks with memory chunks
             all_chunks = context["chunks"] + memory_chunks
-            print(f"[STREAM] doc_chunks={len(context['chunks'])}, memory_chunks={len(memory_chunks)}, total={len(all_chunks)}")
 
             # Step 2: Handle no context case (QRY-04)
             if not all_chunks:
@@ -267,7 +340,6 @@ async def query_stream(
 
             full_response = []
             async for token in stream_answer(query_request.query, all_chunks):
-                # Check for client disconnect (Pitfall #5)
                 if await request.is_disconnected():
                     break
                 full_response.append(token)
@@ -275,7 +347,7 @@ async def query_stream(
 
             yield {"event": "done", "data": ""}
 
-            # Step 5: Save conversation to memory (all users — anonymous get personal session memory too)
+            # Step 5: Save conversation to memory
             if full_response:
                 try:
                     from app.db.mem0_client import get_mem0
@@ -292,17 +364,24 @@ async def query_stream(
                     logger.warning(f"Memory save failed: {e}")
 
         except Exception as e:
-            # Log error but send user-friendly message
             logger.exception(f"Streaming error: {e}")
             yield {
                 "event": "error",
                 "data": json.dumps({"message": "An error occurred while generating the response."})
             }
 
+    # Choose event generator based on provider capability
+    from app.services.llm_provider import supports_tool_calling
+
+    if supports_tool_calling():
+        generator = agent_event_generator()
+    else:
+        generator = fallback_event_generator()
+
     return EventSourceResponse(
-        event_generator(),
+        generator,
         headers={
-            "X-Accel-Buffering": "no",  # Disable nginx buffering (Pitfall #1)
+            "X-Accel-Buffering": "no",
             "Cache-Control": "no-cache",
         }
     )
