@@ -373,7 +373,9 @@ export default function DocumentDetailPage({
           <div>
             <p className="text-muted-foreground">Uploaded</p>
             <p className="font-medium">
-              {new Date(document.created_at).toLocaleDateString()}
+              {document.created_at
+                ? new Date(document.created_at).toLocaleDateString()
+                : "No date"}
             </p>
           </div>
           <div>
@@ -383,7 +385,9 @@ export default function DocumentDetailPage({
           <div>
             <p className="text-muted-foreground">Size</p>
             <p className="font-medium">
-              {(document.file_size / 1024 / 1024).toFixed(1)} MB
+              {document.file_size
+                ? `${(document.file_size / 1024 / 1024).toFixed(1)} MB`
+                : "Unknown"}
             </p>
           </div>
         </CardContent>

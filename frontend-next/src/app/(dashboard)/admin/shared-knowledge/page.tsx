@@ -193,7 +193,9 @@ export default function SharedKnowledgePage() {
                     {doc.status}
                   </Badge>
                   <span className="text-xs text-muted-foreground shrink-0">
-                    {new Date(doc.created_at).toLocaleDateString()}
+                    {doc.created_at
+                      ? new Date(doc.created_at).toLocaleDateString()
+                      : "No date"}
                   </span>
                   <Button
                     variant="ghost"

@@ -3,6 +3,11 @@ docker-compose up -d
 
 ---
 
+# Start Full Backend Stack With One Command
+./scripts/start-backend.sh
+
+---
+
 # Backend API
 cd backend && uv run uvicorn app.main:app --reload --port 8000
 
@@ -24,6 +29,9 @@ cd backend && uv run celery -A app.celery_app:celery worker --loglevel=info --po
 # Frontend (Next.js)
 cd frontend-next && npm run dev
 
+# Recommended if Turbopack keeps reloading/crashing
+cd frontend-next && npx next dev --webpack
+
 ---
 
 # Create Admin User
@@ -33,16 +41,6 @@ uv run python scripts/create_admin.py admin@example.com admin
 
 # API Docs
 http://localhost:8000/docs
-
----
-
-# Streamlit Frontend (If Using Python Frontend)
-
-Install dependencies:
-cd frontend && pip install -r requirements.txt
-
-Start frontend:
-cd frontend && streamlit run app.py
 
 ---
 
